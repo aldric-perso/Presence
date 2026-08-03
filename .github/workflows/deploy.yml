@@ -20,12 +20,8 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Installer les dépendances (app)
+      - name: Installer les dépendances
         run: npm ci
-
-      - name: Installer les dépendances (functions)
-        run: npm ci
-        working-directory: functions
 
       - name: Build de l'application
         run: npm run build
@@ -38,9 +34,9 @@ jobs:
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_USE_EMULATORS: "false"
 
-      - name: Déployer (Hosting, Firestore, Functions)
+      - name: Déployer (Hosting, Firestore)
         uses: w9jds/firebase-action@v13.19.0
         with:
-          args: deploy --only hosting,firestore,functions --project ${{ secrets.FIREBASE_PROJECT_ID }}
+          args: deploy --only hosting,firestore --project ${{ secrets.FIREBASE_PROJECT_ID }}
         env:
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

@@ -26,7 +26,7 @@ export default function TeachersAdminTab({ isAdmin }) {
   const [asAdmin, setAsAdmin] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
-  const [resetInfo, setResetInfo] = useState(null);
+  const [createdInfo, setCreatedInfo] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [roleError, setRoleError] = useState("");
 
@@ -40,20 +40,20 @@ export default function TeachersAdminTab({ isAdmin }) {
     }
     setCreating(true);
     try {
-      const { resetLink } = await createTeacherAccount({
+      await createTeacherAccount({
         displayName: displayName.trim(),
         email: email.trim(),
         role: asAdmin ? "admin" : "teacher",
         classIds: [],
         subjectIds: [],
       });
-      setResetInfo({ displayName: displayName.trim(), email: email.trim(), resetLink });
+      setCreatedInfo({ displayName: displayName.trim(), email: email.trim() });
       setDisplayName("");
       setEmail("");
       setAsAdmin(false);
     } catch (err) {
       setError(
-        err.code === "functions/already-exists"
+        err.code === "auth/email-already-in-use"
           ? "Un compte existe déjà avec cette adresse e-mail."
           : "La création du compte a échoué.",
       );
@@ -68,7 +68,7 @@ export default function TeachersAdminTab({ isAdmin }) {
       await setUserRole(t.id, t.role === "admin" ? "teacher" : "admin");
     } catch (err) {
       setRoleError(
-        err.code === "functions/failed-precondition"
+        err.code === "failed-precondition"
           ? "Impossible de retirer le dernier compte administrateur."
           : "Le changement de rôle a échoué.",
       );
@@ -185,14 +185,13 @@ export default function TeachersAdminTab({ isAdmin }) {
         ))}
       </div>
 
-      {resetInfo && (
+      {createdInfo && (
         <Modal
           kicker="Compte créé"
-          title={`Bienvenue à ${resetInfo.displayName}`}
-          text={`Transmets ce lien à ${resetInfo.email} pour qu'il ou elle définisse son mot de passe. Le lien expire après un délai limité.`}
-          detail={resetInfo.resetLink}
+          title={`Bienvenue à ${createdInfo.displayName}`}
+          text={`Un e-mail vient d'être envoyé à ${createdInfo.email} pour définir son mot de passe et se connecter.`}
           cancelLabel="Fermer"
-          onCancel={() => setResetInfo(null)}
+          onCancel={() => setCreatedInfo(null)}
         />
       )}
     </div>

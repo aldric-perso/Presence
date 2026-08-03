@@ -1,7 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { collection, doc, getDoc, onSnapshot, orderBy, query, where } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
-import { db, functions } from "../firebase";
+import {
+  arrayUnion,
+  collection,
+  doc,
+  getDoc,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+import { auth, db } from "../firebase";
 import { useCollection } from "./useCollection";
 import { attendanceRecordId, initialsOf } from "./ids";
 import { todayISO } from "./dates";
@@ -73,23 +84,115 @@ export function useClassRecords(classId) {
   return useCollection(q);
 }
 
-/** Vérifie côté client si un appel existe déjà pour cette combinaison (le Cloud Function refait la vérification définitive). */
+/** Vérifie côté client si un appel existe déjà pour cette combinaison (aide à l'UX ; la garantie réelle vient des règles Firestore, cf. plus bas). */
 export async function checkExistingRecord({ date, classId, subjectId, timeSlotId }) {
   const id = attendanceRecordId({ date, classId, subjectId, timeSlotId });
   const snap = await getDoc(doc(db, "attendanceRecords", id));
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
-export async function submitAttendanceRecord({ date, classId, subjectId, timeSlotId, entries }) {
-  const call = httpsCallable(functions, "submitAttendanceRecord");
-  const res = await call({ date, classId, subjectId, timeSlotId, entries });
-  return res.data;
+function validateEntries(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    throw new Error("La liste des élèves est vide.");
+  }
+  for (const e of entries) {
+    if (!e.studentId || !Object.values(STATUS).includes(e.status)) {
+      throw new Error("Statut d'élève invalide.");
+    }
+    if (e.status !== STATUS.PRESENT && !e.reason?.trim()) {
+      throw new Error("Un motif est requis pour tout élève non présent.");
+    }
+    if (e.status === STATUS.LATE && (!Number.isFinite(e.minutesMissed) || e.minutesMissed <= 0 || e.minutesMissed >= 50)) {
+      throw new Error("Durée de retard invalide.");
+    }
+  }
 }
 
+function cleanEntries(entries) {
+  return entries.map((e) => ({
+    studentId: e.studentId,
+    status: e.status,
+    minutesMissed: e.status === STATUS.PRESENT ? 0 : e.status === STATUS.ABSENT ? 50 : e.minutesMissed,
+    reason: e.status === STATUS.PRESENT ? null : e.reason.trim(),
+  }));
+}
+
+/**
+ * Sans Cloud Function (plan Spark gratuit), l'écriture se fait directement depuis le client.
+ * L'unicité de l'appel est garantie par Firestore lui-même : l'ID du document est déterministe
+ * (date+classe+matière+créneau) et les règles n'autorisent un "create" que si le document
+ * n'existait pas encore — toute tentative en doublon est donc rejetée nativement, sans
+ * transaction serveur à écrire.
+ */
+export async function submitAttendanceRecord({ date, classId, subjectId, timeSlotId, entries }) {
+  validateEntries(entries);
+
+  const [classSnap, subjectSnap, timeSlotSnap, authorSnap] = await Promise.all([
+    getDoc(doc(db, "classes", classId)),
+    getDoc(doc(db, "subjects", subjectId)),
+    getDoc(doc(db, "timeSlots", timeSlotId)),
+    getDoc(doc(db, "users", auth.currentUser.uid)),
+  ]);
+  if (!classSnap.exists() || !subjectSnap.exists() || !timeSlotSnap.exists()) {
+    throw new Error("Classe, matière ou créneau introuvable.");
+  }
+
+  const recordId = attendanceRecordId({ date, classId, subjectId, timeSlotId });
+
+  try {
+    await setDoc(doc(db, "attendanceRecords", recordId), {
+      date,
+      classId,
+      className: classSnap.data().name,
+      subjectId,
+      subjectName: subjectSnap.data().name,
+      sessionMinutes: subjectSnap.data().sessionMinutes || 50,
+      timeSlotId,
+      timeSlotLabel: timeSlotSnap.data().label,
+      authorId: auth.currentUser.uid,
+      authorName: authorSnap.data().displayName,
+      entries: cleanEntries(entries),
+      locked: true,
+      corrections: [],
+      createdAt: serverTimestamp(),
+    });
+  } catch (err) {
+    if (err.code === "permission-denied") {
+      throw Object.assign(
+        new Error("Un appel a déjà été enregistré entre-temps pour cette classe, cette matière et ce créneau."),
+        { code: "already-exists" },
+      );
+    }
+    throw err;
+  }
+
+  return { id: recordId };
+}
+
+/**
+ * Corrige un appel verrouillé (admin uniquement, appliqué par les règles Firestore). `at` est une
+ * chaîne ISO générée côté client : les sentinelles serverTimestamp() ne sont pas résolues à
+ * l'intérieur des éléments d'un arrayUnion.
+ */
 export async function correctAttendanceRecord({ recordId, entries, reason }) {
-  const call = httpsCallable(functions, "correctAttendanceRecord");
-  const res = await call({ recordId, entries, reason });
-  return res.data;
+  if (!reason?.trim() || reason.trim().length <= 4) {
+    throw new Error("Le motif de correction doit être détaillé.");
+  }
+  validateEntries(entries);
+
+  const authorSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
+
+  await updateDoc(doc(db, "attendanceRecords", recordId), {
+    entries: cleanEntries(entries),
+    corrections: arrayUnion({
+      by: auth.currentUser.uid,
+      byName: authorSnap.data().displayName,
+      at: new Date().toISOString(),
+      reason: reason.trim(),
+    }),
+  });
+
+  return { id: recordId };
 }
 
 /**

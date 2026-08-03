@@ -122,7 +122,7 @@ export default function TakeAttendancePage() {
     } catch (err) {
       setConfirmOpen(false);
       setErrorMsg(
-        err.code === "functions/already-exists"
+        err.code === "already-exists"
           ? "Cet appel a déjà été enregistré entre-temps par un autre enseignant."
           : "L'enregistrement a échoué. Réessaie.",
       );

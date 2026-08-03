@@ -3,62 +3,89 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // --- Pas de Cloud Functions (plan Spark) : le rôle vit uniquement dans le document
+    // users/{uid}, jamais dans un custom claim. Toute lecture de données sensibles exige
+    // donc un profil existant — un compte Auth auto-créé sans profil (cf. limite ci-dessous)
+    // n'a accès à rien.
+
     function isSignedIn() {
       return request.auth != null;
     }
 
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasProfile() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
     function isAdmin() {
-      return isSignedIn() && request.auth.token.role == 'admin';
+      return hasProfile() && myProfile().role == 'admin';
     }
 
     // --- Comptes enseignants / admins ---
-    // Créés et mutés (rôle) uniquement via Cloud Functions (Admin SDK, contourne ces règles).
-    // Seule l'édition des affectations (classes/matières) est autorisée en direct, par un admin.
+    // Création : un admin authentifié crée le profil juste après avoir créé le compte Auth
+    // (via une instance Firebase secondaire côté client, cf. src/lib/users.js). L'auteur de
+    // l'écriture est donc bien l'admin, même si le document créé porte l'UID du nouveau compte.
     match /users/{uid} {
-      allow read: if isSignedIn();
+      allow read: if hasProfile();
+      allow create: if isAdmin() &&
+        request.resource.data.role in ['admin', 'teacher'] &&
+        request.resource.data.keys().hasAll(['displayName', 'email', 'role', 'classIds', 'subjectIds', 'active']);
       allow update: if isAdmin() &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['classIds', 'subjectIds']);
-      allow create, delete: if false;
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['classIds', 'subjectIds', 'role', 'active']);
+      allow delete: if false;
     }
 
     // --- Classes ---
     match /classes/{classId} {
-      allow read: if isSignedIn();
+      allow read: if hasProfile();
       allow create, update: if isAdmin();
       allow delete: if false; // archivage via update(archived:true), pas de suppression définitive
     }
 
     // --- Matières ---
     match /subjects/{subjectId} {
-      allow read: if isSignedIn();
+      allow read: if hasProfile();
       allow create, update, delete: if isAdmin();
     }
 
     // --- Élèves ---
     match /students/{studentId} {
-      allow read: if isSignedIn();
+      allow read: if hasProfile();
       allow create: if isAdmin();
       allow update, delete: if false; // pas d'édition/suppression dans l'interface actuelle
     }
 
     // --- Créneaux horaires (fixes, gérés via script de seed) ---
     match /timeSlots/{slotId} {
-      allow read: if isSignedIn();
+      allow read: if hasProfile();
       allow write: if false;
     }
 
     // --- Réglages généraux (ex. seuil de présence) ---
     match /settings/{docId} {
-      allow read: if isSignedIn();
+      allow read: if hasProfile();
       allow write: if isAdmin();
     }
 
     // --- Appels ---
-    // Toute création/correction passe par les Cloud Functions (submitAttendanceRecord,
-    // correctAttendanceRecord) qui valident, verrouillent et signent le document.
+    // Un appel n'est jamais recréé : l'ID déterministe (date_classe_matière_créneau) fait que
+    // Firestore refuse nativement toute tentative de "create" sur un document déjà existant —
+    // c'est ce qui garantit l'unicité d'un appel, sans transaction serveur.
+    // Une fois créé, seul un admin peut le modifier (correction, motif obligatoire conservé).
     match /attendanceRecords/{recordId} {
-      allow read: if isSignedIn();
-      allow write: if false;
+      allow read: if hasProfile();
+      allow create: if hasProfile() &&
+        request.resource.data.authorId == request.auth.uid &&
+        request.resource.data.authorName == myProfile().displayName &&
+        request.resource.data.locked == true &&
+        request.resource.data.corrections.size() == 0;
+      allow update: if isAdmin() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['entries', 'corrections']) &&
+        request.resource.data.corrections.size() == resource.data.corrections.size() + 1;
+      allow delete: if false;
     }
   }
 }

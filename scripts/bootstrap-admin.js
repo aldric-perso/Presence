@@ -36,8 +36,6 @@ async function main() {
     displayName,
   });
 
-  await auth.setCustomUserClaims(userRecord.uid, { role: "admin" });
-
   await db.collection("users").doc(userRecord.uid).set({
     displayName,
     email,

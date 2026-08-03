@@ -12,44 +12,51 @@ conservée dans `Downloads/Application de feuille de présences/` à titre de r�
 
 - **Frontend** : React 18 + Vite, React Router, CSS Modules (aucun framework CSS — design system
   maison proche de la maquette).
-- **Backend** : Firebase — Firestore (données), Authentication (email + mot de passe), Cloud
-  Functions (opérations sensibles : création de comptes, changement de rôle, validation et
-  correction d'un appel), Hosting (déploiement statique).
+- **Backend** : Firebase — Firestore (données), Authentication (email + mot de passe), Hosting
+  (déploiement statique). **Aucune Cloud Function** : tout fonctionne sur le plan gratuit **Spark**,
+  aucune carte bancaire à renseigner.
 - **CI/CD** : GitHub Actions, build + déploiement automatique sur `main`.
 
-## Pourquoi des Cloud Functions plutôt que tout en client ?
+## Comment la sécurité fonctionne sans Cloud Functions
 
-Firebase Auth ne permet pas de restreindre côté client la création de comptes (n'importe quel
-utilisateur authentifié pourrait sinon appeler `createUserWithEmailAndPassword` depuis la console
-du navigateur). Comme l'application manipule des données concernant des élèves hospitalisés, les
-opérations sensibles passent par des Cloud Functions qui vérifient le rôle admin côté serveur
-(claim personnalisé, infalsifiable) avant d'agir :
+Sans Cloud Functions, chaque écriture Firestore vient directement du navigateur — la sécurité est
+donc entièrement portée par `firestore.rules` :
 
-- `createTeacherAccount` — crée un compte enseignant/admin et renvoie un lien de réinitialisation
-  de mot de passe (aucun service d'e-mail tiers requis : c'est le lien natif Firebase Auth, à
-  transmettre manuellement).
-- `setUserRole` — bascule un compte enseignant ↔ administrateur (protège contre la suppression du
-  dernier admin).
-- `submitAttendanceRecord` — valide et verrouille un appel (vérifie l'absence de doublon de façon
-  atomique, signe avec l'identité de l'appelant).
-- `correctAttendanceRecord` — corrige un appel verrouillé (admin uniquement, motif obligatoire,
-  historique conservé).
+- Le rôle (`admin` / `teacher`) vit uniquement dans le document `users/{uid}`, jamais dans un champ
+  qu'on pourrait confondre avec une donnée de confort. Les règles vérifient ce rôle en lisant ce
+  document (`get()`), pas un custom claim (qui nécessiterait l'Admin SDK, donc une Cloud Function).
+- **Création de compte enseignant** (*Paramètres → Enseignants*) : le code crée le compte
+  Authentication via une instance Firebase secondaire, pour ne pas déconnecter l'admin en cours de
+  session, puis écrit le profil `users/{uid}` (autorisé uniquement si l'appelant est admin), puis
+  déclenche un e-mail de réinitialisation de mot de passe — un service natif et gratuit de Firebase
+  Auth, sans extension payante.
+- **Unicité d'un appel** : l'ID du document (`date_classeId_matiereId_creneauId`) est déterministe.
+  Firestore classe automatiquement une écriture en `create` ou `update` selon qu'un document
+  existait déjà à ce chemin — et les règles n'autorisent la création qu'à cette seule condition.
+  Résultat : deux enseignants ne peuvent jamais enregistrer le même appel deux fois, sans code
+  serveur ni transaction à écrire.
+- **Correction d'un appel verrouillé** : seul un admin peut modifier `entries`/`corrections` d'un
+  appel existant ; toute autre écriture sur ce document est refusée par les règles.
 
-Ces fonctions nécessitent le plan **Blaze** (paiement à l'usage) sur le projet Firebase — le tarif
-gratuit inclus (2 millions d'appels/mois) couvre très largement l'usage d'un établissement.
+**Limite assumée** : sans Admin SDK server-side, on ne peut pas empêcher un utilisateur qui
+inspecterait le code de la page d'appeler lui-même `createUserWithEmailAndPassword` (la config
+Firebase d'une appli web est de toute façon toujours publique). Un tel compte "sauvage" resterait
+cependant sans profil `users/{uid}` — donc sans aucun accès aux données, tous les écrans et
+règles exigeant `hasProfile()`. De même, la protection "on ne peut pas retirer le dernier admin"
+n'est qu'un garde-fou côté client (les règles Firestore ne peuvent pas compter des documents) —
+un risque très faible pour une petite équipe de confiance, mais à connaître.
 
-## Mise en route
+## Mise en route (sur ton projet Firebase existant)
 
-### 1. Créer le projet Firebase
+### 1. Vérifier les services activés
 
-1. [console.firebase.google.com](https://console.firebase.google.com) → *Ajouter un projet*.
-2. Passer au plan **Blaze** (Paramètres du projet → Utilisation et facturation).
-3. **Authentication** → Sign-in method → activer *E-mail/Mot de passe*.
-4. **Firestore Database** → créer une base (mode production), choisir une région proche de
-   l'établissement.
-5. **Hosting** → activer (pas besoin de suivre l'assistant, on déploiera via CLI/CI).
-6. **Paramètres du projet** → Général → *Vos applications* → ajouter une application Web → copier
-   la config SDK.
+Sur [console.firebase.google.com](https://console.firebase.google.com), dans ton projet :
+
+1. **Authentication** → Sign-in method → activer *E-mail/Mot de passe* si ce n'est pas déjà fait.
+2. **Firestore Database** → vérifier qu'une base existe (mode production).
+3. **Hosting** → activer si besoin (pas besoin de suivre l'assistant, on déploiera via CLI/CI).
+
+Le plan **Spark** (gratuit) suffit très largement pour tout ça.
 
 ### 2. Configuration locale
 
@@ -58,28 +65,40 @@ npm install
 cp .env.example .env.local
 ```
 
-Renseigner `.env.local` avec la config SDK copiée à l'étape précédente.
+Renseigner `.env.local` avec la config SDK web de ton projet (Paramètres du projet → Général →
+Vos applications → Config SDK).
 
-Mettre à jour `.firebaserc` avec l'ID du projet (remplace `REPLACE_WITH_YOUR_FIREBASE_PROJECT_ID`),
-ou lancer :
+`.firebaserc` pointe déjà vers `feuille-de-presence-5c35a`. Si ce n'est pas le bon ID, remplace-le
+ou lance `npx firebase-tools use --add`.
 
-```bash
-npx firebase-tools use --add
-```
-
-### 3. Compte de service (pour les scripts d'administration)
+### 3. Compte de service (pour les scripts d'administration, en local uniquement)
 
 Console Firebase → Paramètres du projet → Comptes de service → *Générer une nouvelle clé privée*.
 Enregistrer le fichier téléchargé à la racine du projet sous le nom `serviceAccountKey.json`
-(déjà exclu de git par `.gitignore` — **ne jamais le committer**).
+(déjà exclu de git par `.gitignore` — **ne jamais le committer**). Ces scripts tournent sur ta
+machine avec l'Admin SDK ; ce n'est pas une Cloud Function et ça ne nécessite pas le plan Blaze.
 
-### 4. Déployer les règles, indexes et fonctions
+### 4. Repartir d'une base propre (si l'ancienne version doit être effacée)
+
+Le script liste par défaut ce qu'il trouve sans rien supprimer (dry run) :
 
 ```bash
-npx firebase-tools deploy --only firestore,functions
+node scripts/reset-firestore.js
 ```
 
-### 5. Seed des données de référence
+Une fois la liste vérifiée, relance avec `--yes` pour effacer réellement (irréversible) :
+
+```bash
+node scripts/reset-firestore.js --yes
+```
+
+### 5. Déployer les règles et les indexes
+
+```bash
+npx firebase-tools deploy --only firestore
+```
+
+### 6. Seed des données de référence
 
 Matières, créneaux horaires et seuil de présence par défaut :
 
@@ -87,7 +106,7 @@ Matières, créneaux horaires et seuil de présence par défaut :
 npm run seed
 ```
 
-### 6. Créer le premier compte administrateur
+### 7. Créer le premier compte administrateur
 
 ```bash
 npm run bootstrap-admin "Prénom Nom" email@etablissement.fr
@@ -99,13 +118,13 @@ personne concernée pour qu'elle définisse son mot de passe et se connecte.
 Les comptes suivants se créent ensuite directement depuis l'application, dans *Paramètres →
 Enseignants & admins*.
 
-### 7. Lancer l'application
+### 8. Lancer l'application
 
 ```bash
 npm run dev
 ```
 
-### 8. Déployer le frontend
+### 9. Déployer le frontend
 
 ```bash
 npm run build
@@ -122,8 +141,9 @@ Puis dans `.env.local`, passer `VITE_USE_EMULATORS=true` avant de lancer `npm ru
 
 ## CI/CD (GitHub Actions)
 
-Le workflow `.github/workflows/deploy.yml` construit et déploie l'application à chaque push sur
-`main`. Secrets à configurer dans *Settings → Secrets and variables → Actions* du repo GitHub :
+Le workflow `.github/workflows/deploy.yml` construit et déploie l'application (Hosting + règles
+Firestore) à chaque push sur `main`. Secrets à configurer dans *Settings → Secrets and variables →
+Actions* du repo GitHub :
 
 | Secret | Contenu |
 | --- | --- |
@@ -137,18 +157,16 @@ Le workflow `.github/workflows/deploy.yml` construit et déploie l'application �
 - `subjects/{id}` — nom, durée de séance en minutes (50 par défaut).
 - `students/{id}` — prénom, nom, classe.
 - `timeSlots/{id}` — créneaux horaires fixes (gérés par `scripts/seed.js`).
-- `users/{uid}` — profil enseignant/admin (le rôle réel est porté par un *custom claim* Firebase
-  Auth, mirroré ici pour l'affichage).
+- `users/{uid}` — profil enseignant/admin ; **le rôle réel est ce champ Firestore**, protégé par les
+  règles (seul un admin peut le modifier) — pas de custom claim.
 - `settings/general` — réglages (seuil d'alerte de présence).
 - `attendanceRecords/{date_classId_subjectId_timeSlotId}` — un appel verrouillé et signé. L'ID
-  déterministe garantit l'unicité au niveau base de données. Écriture exclusivement via Cloud
-  Functions ; lecture ouverte à tout utilisateur connecté.
-
-Les règles de sécurité (`firestore.rules`) s'appuient sur le custom claim `role` pour distinguer
-administrateurs et enseignants — jamais sur un champ Firestore modifiable côté client.
+  déterministe garantit l'unicité au niveau base de données (cf. section sécurité ci-dessus).
 
 ## Choix de périmètre (v1)
 
+- Pas de Cloud Functions ni de plan Blaze : tout est pensé pour rester gratuit (cf. section
+  sécurité ci-dessus pour les compromis que ça implique).
 - Pas d'emploi du temps récurrent par enseignant : l'accueil affiche les appels du jour déjà
   enregistrés dans l'établissement plutôt qu'une liste "à faire" fictive (la maquette ne fournissait
   pas d'écran pour construire un tel planning).
@@ -166,8 +184,7 @@ src/
   lib/               accès Firestore, logique métier (attendance, ids, dates...)
   pages/             écrans de l'application
   pages/settings/    onglets de la page Paramètres
-functions/           Cloud Functions (Admin SDK)
-scripts/             scripts d'administration (seed, bootstrap-admin)
+scripts/             scripts d'administration (seed, bootstrap-admin, reset-firestore)
 firestore.rules      règles de sécurité
 firestore.indexes.json
 firebase.json

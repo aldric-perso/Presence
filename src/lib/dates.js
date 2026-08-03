@@ -30,10 +30,15 @@ export function formatDateShort(isoDate) {
   return new Intl.DateTimeFormat("fr-FR").format(d);
 }
 
-/** "30/01/2026 à 17h12" à partir d'un Firestore Timestamp. */
+/**
+ * "30/01/2026 à 17h12" à partir d'un Firestore Timestamp ou d'une chaîne ISO — les corrections
+ * d'appel stockent une chaîne ISO générée côté client (les sentinelles serverTimestamp() ne sont
+ * pas résolues à l'intérieur des éléments d'un arrayUnion), tandis que createdAt reste un vrai
+ * Firestore Timestamp.
+ */
 export function formatTimestamp(ts) {
-  if (!ts?.toDate) return "—";
-  const d = ts.toDate();
+  const d = ts?.toDate ? ts.toDate() : ts ? new Date(ts) : null;
+  if (!d || Number.isNaN(d.getTime())) return "—";
   const date = new Intl.DateTimeFormat("fr-FR").format(d);
   const time = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(d).replace(":", "h");
   return `${date} à ${time}`;

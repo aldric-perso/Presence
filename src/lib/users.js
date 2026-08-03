@@ -1,7 +1,18 @@
 import { useMemo } from "react";
-import { collection, doc, orderBy, query, updateDoc } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
-import { db, functions } from "../firebase";
+import { initializeApp, deleteApp } from "firebase/app";
+import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut } from "firebase/auth";
+import {
+  collection,
+  doc,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+import { app, db } from "../firebase";
 import { useCollection } from "./useCollection";
 import { normalize } from "./ids";
 
@@ -17,16 +28,57 @@ export function findDuplicateTeacher(teachers, displayName) {
   return teachers.find((t) => normalize(t.displayName) === key) || null;
 }
 
-/** Crée le compte Auth + le profil Firestore côté serveur, renvoie un lien de réinitialisation à transmettre. */
-export async function createTeacherAccount({ displayName, email, role, classIds, subjectIds }) {
-  const call = httpsCallable(functions, "createTeacherAccount");
-  const res = await call({ displayName, email, role, classIds, subjectIds });
-  return res.data; // { uid, resetLink }
+function randomPassword() {
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  return btoa(String.fromCharCode(...bytes)).replace(/[+/=]/g, "");
 }
 
+/**
+ * Crée le compte Auth + le profil Firestore, et envoie un e-mail de réinitialisation de mot de
+ * passe (gratuit, géré nativement par Firebase Auth). Utilise une instance Firebase secondaire
+ * pour que la création du compte ne déconnecte pas l'administrateur en cours de session — aucune
+ * Cloud Function n'est nécessaire (compatible plan Spark gratuit).
+ */
+export async function createTeacherAccount({ displayName, email, role, classIds = [], subjectIds = [] }) {
+  const secondaryApp = initializeApp(app.options, `secondary-${Date.now()}`);
+  const secondaryAuth = getAuth(secondaryApp);
+  try {
+    const credential = await createUserWithEmailAndPassword(secondaryAuth, email.trim(), randomPassword());
+
+    await setDoc(doc(db, "users", credential.user.uid), {
+      displayName: displayName.trim(),
+      email: email.trim(),
+      role,
+      classIds,
+      subjectIds,
+      active: true,
+      createdAt: serverTimestamp(),
+    });
+
+    await sendPasswordResetEmail(secondaryAuth, email.trim());
+
+    return { uid: credential.user.uid };
+  } finally {
+    await signOut(secondaryAuth).catch(() => {});
+    await deleteApp(secondaryApp);
+  }
+}
+
+/**
+ * Sans Cloud Function, la protection du dernier administrateur n'est qu'un garde-fou côté client
+ * (pas une garantie de sécurité au niveau des règles, qui ne peuvent pas compter des documents).
+ */
 export async function setUserRole(uid, role) {
-  const call = httpsCallable(functions, "setUserRole");
-  await call({ uid, role });
+  if (role === "teacher") {
+    const admins = await getDocs(query(usersRef, where("role", "==", "admin")));
+    const isLastAdmin = admins.size === 1 && admins.docs[0].id === uid;
+    if (isLastAdmin) {
+      throw Object.assign(new Error("Impossible de retirer le dernier compte administrateur."), {
+        code: "failed-precondition",
+      });
+    }
+  }
+  await updateDoc(doc(db, "users", uid), { role });
 }
 
 export async function updateTeacherAssignments(uid, { classIds, subjectIds }) {
