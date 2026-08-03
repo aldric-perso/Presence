@@ -1,6 +1,6 @@
 import { collection, doc, serverTimestamp, writeBatch, arrayUnion } from "firebase/firestore";
 import { db } from "../firebase";
-import { normalize } from "./ids";
+import { normalize, squeezeSpaces } from "./ids";
 import { findDuplicateStudent } from "./students";
 import { todayISO } from "./dates";
 
@@ -49,8 +49,8 @@ export async function parseStudentsWorkbook(file) {
 
   return rows
     .map((row) => ({
-      firstName: String(pick(row, COLUMNS.firstName)).trim(),
-      lastName: String(pick(row, COLUMNS.lastName)).trim(),
+      firstName: squeezeSpaces(String(pick(row, COLUMNS.firstName))),
+      lastName: squeezeSpaces(String(pick(row, COLUMNS.lastName))),
       className: String(pick(row, COLUMNS.className)).trim(),
       arrivedAt: parseCellDate(pick(row, COLUMNS.arrivedAt)),
       departedAt: parseCellDate(pick(row, COLUMNS.departedAt)),

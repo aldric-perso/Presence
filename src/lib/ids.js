@@ -1,3 +1,8 @@
+/** Nettoie une saisie : retire les espaces en debut/fin et reduit les espaces multiples internes a un seul. */
+export function squeezeSpaces(str = "") {
+  return str.replace(/\s+/g, " ").trim();
+}
+
 /** Normalise une chaine pour la comparaison anti-doublon (accents, tirets, espaces, casse ignores). */
 export function normalize(str = "") {
   return str

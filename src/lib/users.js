@@ -14,7 +14,7 @@ import {
 } from "firebase/firestore";
 import { app, db } from "../firebase";
 import { useCollection } from "./useCollection";
-import { normalize } from "./ids";
+import { normalize, squeezeSpaces } from "./ids";
 
 const usersRef = collection(db, "users");
 
@@ -46,7 +46,7 @@ export async function createTeacherAccount({ displayName, email, role, classIds 
     const credential = await createUserWithEmailAndPassword(secondaryAuth, email.trim(), randomPassword());
 
     await setDoc(doc(db, "users", credential.user.uid), {
-      displayName: displayName.trim(),
+      displayName: squeezeSpaces(displayName),
       email: email.trim(),
       role,
       classIds,

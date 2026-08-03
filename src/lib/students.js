@@ -15,7 +15,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useCollection } from "./useCollection";
-import { normalize } from "./ids";
+import { normalize, squeezeSpaces } from "./ids";
 import { todayISO } from "./dates";
 
 const studentsRef = collection(db, "students");
@@ -79,11 +79,13 @@ export function findDuplicateStudent(students, firstName, lastName) {
 }
 
 export async function createStudent({ firstName, lastName, classId, className, arrivedAt }) {
-  const fullName = `${firstName.trim()} ${lastName.trim()}`;
+  const cleanFirstName = squeezeSpaces(firstName);
+  const cleanLastName = squeezeSpaces(lastName);
+  const fullName = `${cleanFirstName} ${cleanLastName}`;
   const since = arrivedAt || todayISO();
   await addDoc(studentsRef, {
-    firstName: firstName.trim(),
-    lastName: lastName.trim(),
+    firstName: cleanFirstName,
+    lastName: cleanLastName,
     fullName,
     classId,
     arrivedAt: since,
@@ -111,10 +113,12 @@ export async function reactivateStudent(studentId) {
 }
 
 export async function updateStudentName(studentId, { firstName, lastName }) {
+  const cleanFirstName = squeezeSpaces(firstName);
+  const cleanLastName = squeezeSpaces(lastName);
   await updateDoc(doc(db, "students", studentId), {
-    firstName: firstName.trim(),
-    lastName: lastName.trim(),
-    fullName: `${firstName.trim()} ${lastName.trim()}`,
+    firstName: cleanFirstName,
+    lastName: cleanLastName,
+    fullName: `${cleanFirstName} ${cleanLastName}`,
   });
 }
 
