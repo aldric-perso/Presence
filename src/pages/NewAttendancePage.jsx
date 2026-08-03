@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import { useClasses } from "../lib/classes";
 import { useSubjects } from "../lib/subjects";
 import { useTimeSlots } from "../lib/timeSlots";
@@ -13,9 +14,15 @@ import Modal from "../components/ui/Modal";
 
 export default function NewAttendancePage() {
   const navigate = useNavigate();
+  const { profile, isAdmin } = useAuth();
   const { data: classes } = useClasses();
-  const { data: subjects } = useSubjects();
+  const { data: allSubjects } = useSubjects();
   const { data: timeSlots } = useTimeSlots();
+
+  const subjects = useMemo(
+    () => (isAdmin ? allSubjects : allSubjects.filter((s) => (profile?.subjectIds || []).includes(s.id))),
+    [allSubjects, isAdmin, profile],
+  );
 
   const [date, setDate] = useState(todayISO());
   const [classId, setClassId] = useState("");
@@ -138,6 +145,13 @@ export default function NewAttendancePage() {
             </Select>
           </Field>
         </div>
+
+        {subjects.length === 0 && (
+          <Callout tone="warning">
+            Aucune matière ne t'a été affectée. Demande à un administrateur de mettre à jour tes
+            affectations dans Paramètres → Enseignants & admins.
+          </Callout>
+        )}
 
         <div>
           <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
