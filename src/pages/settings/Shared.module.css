@@ -77,6 +77,27 @@
   border-bottom: none;
 }
 
+.sortableHead {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+.sortableHead:hover {
+  color: var(--color-ink);
+}
+.sortArrow {
+  font-size: 9px;
+}
+
 .cardsGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;

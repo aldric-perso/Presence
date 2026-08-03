@@ -3,6 +3,7 @@ import { useSubjects, createSubject, removeSubject, findDuplicateSubject } from 
 import { useTeachers } from "../../lib/users";
 import { Field, TextInput } from "../../components/ui/Field";
 import Button from "../../components/ui/Button";
+import Modal from "../../components/ui/Modal";
 import styles from "./Shared.module.css";
 
 export default function SubjectsAdminTab({ isAdmin }) {
@@ -10,6 +11,7 @@ export default function SubjectsAdminTab({ isAdmin }) {
   const { data: teachers } = useTeachers();
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
+  const [pendingRemove, setPendingRemove] = useState(null);
 
   async function handleAdd() {
     if (!name.trim()) return;
@@ -53,7 +55,7 @@ export default function SubjectsAdminTab({ isAdmin }) {
               </div>
               {isAdmin && (
                 <button
-                  onClick={() => removeSubject(s.id)}
+                  onClick={() => setPendingRemove(s)}
                   style={{ background: "transparent", border: "none", color: "var(--color-red)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
                 >
                   Retirer
@@ -64,6 +66,27 @@ export default function SubjectsAdminTab({ isAdmin }) {
         })}
         {subjects.length === 0 && <div className={styles.emptyMsg}>Aucune matière pour le moment.</div>}
       </div>
+
+      {pendingRemove && (
+        <Modal
+          kicker="Suppression"
+          title={`Retirer « ${pendingRemove.name} » ?`}
+          text="Cette matière ne sera plus proposée lors de la création d'un appel. Les appels déjà enregistrés ne sont pas modifiés."
+          detail={
+            teachers.filter((t) => (t.subjectIds || []).includes(pendingRemove.id)).length > 0
+              ? `${teachers.filter((t) => (t.subjectIds || []).includes(pendingRemove.id)).length} enseignant(s) ont actuellement cette matière affectée.`
+              : undefined
+          }
+          confirmLabel="Retirer"
+          cancelLabel="Annuler"
+          danger
+          onCancel={() => setPendingRemove(null)}
+          onConfirm={async () => {
+            await removeSubject(pendingRemove.id);
+            setPendingRemove(null);
+          }}
+        />
+      )}
     </div>
   );
 }

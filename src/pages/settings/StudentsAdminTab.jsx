@@ -16,12 +16,33 @@ import styles from "./Shared.module.css";
 
 const ROW_COLUMNS = "1.3fr 1fr 1fr 1fr 170px";
 
+/** Compare deux valeurs pour le tri du tableau ; les valeurs vides passent toujours en dernier. */
+function compareSortValues(a, b) {
+  const emptyA = a === null || a === undefined || a === "";
+  const emptyB = b === null || b === undefined || b === "";
+  if (emptyA && emptyB) return 0;
+  if (emptyA) return 1;
+  if (emptyB) return -1;
+  return String(a).localeCompare(String(b), "fr", { sensitivity: "base" });
+}
+
+function SortableHeader({ label, sortKey, sort, onSort }) {
+  const active = sort.key === sortKey;
+  return (
+    <button type="button" className={styles.sortableHead} onClick={() => onSort(sortKey)}>
+      {label}
+      <span className={styles.sortArrow}>{active ? (sort.dir === "asc" ? "▲" : "▼") : ""}</span>
+    </button>
+  );
+}
+
 export default function StudentsAdminTab({ isAdmin }) {
   const { data: students } = useStudents();
   const { data: classes } = useClasses();
   const { data: records } = useAllRecords();
 
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState({ key: null, dir: "asc" });
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [message, setMessage] = useState("");
   const [managingId, setManagingId] = useState(null);
@@ -29,7 +50,7 @@ export default function StudentsAdminTab({ isAdmin }) {
   const [importError, setImportError] = useState("");
   const fileInputRef = useRef(null);
 
-  const classById = new Map(classes.map((c) => [c.id, c]));
+  const classById = useMemo(() => new Map(classes.map((c) => [c.id, c])), [classes]);
   const managingStudent = students.find((s) => s.id === managingId) || null;
 
   const filteredStudents = useMemo(() => {
@@ -37,6 +58,22 @@ export default function StudentsAdminTab({ isAdmin }) {
     if (!q) return students;
     return students.filter((s) => normalize(s.fullName).includes(q));
   }, [students, search]);
+
+  const sortedStudents = useMemo(() => {
+    if (!sort.key) return filteredStudents;
+    const getValue = {
+      name: (s) => s.fullName,
+      class: (s) => classById.get(s.classId)?.name || "",
+      arrivedAt: (s) => s.arrivedAt,
+      departedAt: (s) => s.departedAt,
+    }[sort.key];
+    const sign = sort.dir === "asc" ? 1 : -1;
+    return [...filteredStudents].sort((a, b) => sign * compareSortValues(getValue(a), getValue(b)));
+  }, [filteredStudents, sort, classById]);
+
+  function toggleSort(key) {
+    setSort((prev) => (prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+  }
 
   async function handleFileSelected(e) {
     const file = e.target.files?.[0];
@@ -104,13 +141,13 @@ export default function StudentsAdminTab({ isAdmin }) {
 
       <div className={["card", styles.listCard].join(" ")}>
         <div className={styles.tableHead} style={{ gridTemplateColumns: ROW_COLUMNS }}>
-          <span>Élève</span>
-          <span>Classe</span>
-          <span>Arrivé le</span>
-          <span>Parti le</span>
+          <SortableHeader label="Élève" sortKey="name" sort={sort} onSort={toggleSort} />
+          <SortableHeader label="Classe" sortKey="class" sort={sort} onSort={toggleSort} />
+          <SortableHeader label="Arrivé le" sortKey="arrivedAt" sort={sort} onSort={toggleSort} />
+          <SortableHeader label="Parti le" sortKey="departedAt" sort={sort} onSort={toggleSort} />
           <span></span>
         </div>
-        {filteredStudents.map((s) => (
+        {sortedStudents.map((s) => (
           <div key={s.id} className={styles.tableRow} style={{ gridTemplateColumns: ROW_COLUMNS }}>
             <span style={{ fontWeight: 600 }}>{s.fullName}</span>
             <span style={{ color: "var(--color-ink-soft)" }}>{classById.get(s.classId)?.name || "—"}</span>
@@ -135,7 +172,7 @@ export default function StudentsAdminTab({ isAdmin }) {
             </div>
           </div>
         ))}
-        {filteredStudents.length === 0 && (
+        {sortedStudents.length === 0 && (
           <div className={styles.emptyMsg}>
             {students.length === 0 ? "Aucun élève pour le moment." : "Aucun élève ne correspond à la recherche."}
           </div>

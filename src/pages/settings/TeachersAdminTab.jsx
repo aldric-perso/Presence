@@ -29,6 +29,7 @@ export default function TeachersAdminTab({ isAdmin }) {
   const [createdInfo, setCreatedInfo] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [roleError, setRoleError] = useState("");
+  const [pendingRoleChange, setPendingRoleChange] = useState(null);
 
   async function handleCreate() {
     if (!displayName.trim() || !email.trim()) return;
@@ -125,7 +126,7 @@ export default function TeachersAdminTab({ isAdmin }) {
               </div>
               {isAdmin && (
                 <>
-                  <Button variant="ghost" size="sm" onClick={() => handleToggleAdmin(t)}>
+                  <Button variant="ghost" size="sm" onClick={() => setPendingRoleChange(t)}>
                     Basculer admin
                   </Button>
                   <Button
@@ -192,6 +193,30 @@ export default function TeachersAdminTab({ isAdmin }) {
           text={`Un e-mail vient d'être envoyé à ${createdInfo.email} pour définir son mot de passe et se connecter.`}
           cancelLabel="Fermer"
           onCancel={() => setCreatedInfo(null)}
+        />
+      )}
+
+      {pendingRoleChange && (
+        <Modal
+          kicker="Rôle"
+          title={
+            pendingRoleChange.role === "admin"
+              ? `Retirer les droits admin à ${pendingRoleChange.displayName} ?`
+              : `Donner les droits admin à ${pendingRoleChange.displayName} ?`
+          }
+          text={
+            pendingRoleChange.role === "admin"
+              ? "Cette personne redeviendra enseignant·e simple et perdra l'accès aux réglages d'administration."
+              : "Cette personne pourra gérer les classes, matières, comptes enseignants et corriger un appel verrouillé."
+          }
+          confirmLabel="Confirmer"
+          cancelLabel="Annuler"
+          danger={pendingRoleChange.role === "admin"}
+          onCancel={() => setPendingRoleChange(null)}
+          onConfirm={async () => {
+            await handleToggleAdmin(pendingRoleChange);
+            setPendingRoleChange(null);
+          }}
         />
       )}
     </div>
