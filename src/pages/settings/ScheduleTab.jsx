@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { useTimeSlots, createTimeSlot, updateTimeSlotLabel, deleteTimeSlot } from "../../lib/timeSlots";
 import { useSettings, updateSettings } from "../../lib/settings";
+import { useAllRecords, recordsReferencingReason, renameReasonInRecords } from "../../lib/attendance";
 import { Field, TextInput } from "../../components/ui/Field";
 import Button from "../../components/ui/Button";
 import { Pill } from "../../components/ui/Pill";
+import Modal from "../../components/ui/Modal";
 import styles from "./Shared.module.css";
 
 export default function ScheduleTab({ isAdmin }) {
   const { data: timeSlots } = useTimeSlots();
   const { settings } = useSettings();
+  const { data: records } = useAllRecords();
 
   return (
     <div style={{ display: "grid", gap: 20 }}>
@@ -19,6 +22,7 @@ export default function ScheduleTab({ isAdmin }) {
         title="Motifs d'absence"
         field="absenceReasons"
         reasons={settings.absenceReasons}
+        records={records}
         placeholder="Ex. Rendez-vous médical"
       />
       <ReasonsSection
@@ -26,6 +30,7 @@ export default function ScheduleTab({ isAdmin }) {
         title="Motifs de retard"
         field="lateReasons"
         reasons={settings.lateReasons}
+        records={records}
         placeholder="Ex. Transport en retard"
       />
       <MinuteChoicesSection isAdmin={isAdmin} choices={settings.lateMinuteChoices} />
@@ -152,9 +157,13 @@ function TimeSlotsSection({ isAdmin, timeSlots }) {
   );
 }
 
-function ReasonsSection({ isAdmin, title, field, reasons, placeholder }) {
+function ReasonsSection({ isAdmin, title, field, reasons, records, placeholder }) {
   const [label, setLabel] = useState("");
   const [justified, setJustified] = useState(true);
+  const [drafts, setDrafts] = useState({});
+  const [renamingLabel, setRenamingLabel] = useState(null);
+  const [renameError, setRenameError] = useState("");
+  const [pendingRemove, setPendingRemove] = useState(null);
 
   async function handleAdd() {
     const value = label.trim();
@@ -169,8 +178,35 @@ function ReasonsSection({ isAdmin, title, field, reasons, placeholder }) {
     updateSettings({ [field]: next });
   }
 
-  function removeAt(index) {
-    updateSettings({ [field]: reasons.filter((_, i) => i !== index) });
+  function draftFor(r) {
+    return drafts[r.label] ?? r.label;
+  }
+
+  async function handleRename(index) {
+    const oldLabel = reasons[index].label;
+    const newLabel = draftFor(reasons[index]).trim();
+    setRenameError("");
+    if (!newLabel || newLabel === oldLabel) return;
+    if (reasons.some((r, i) => i !== index && r.label.toLowerCase() === newLabel.toLowerCase())) {
+      setRenameError("Un motif porte déjà ce nom.");
+      return;
+    }
+    setRenamingLabel(oldLabel);
+    const nextReasons = reasons.map((r, i) => (i === index ? { ...r, label: newLabel } : r));
+    await updateSettings({ [field]: nextReasons });
+    await renameReasonInRecords({ oldLabel, newLabel, records });
+    setRenamingLabel(null);
+  }
+
+  function requestRemove(index) {
+    const r = reasons[index];
+    const count = recordsReferencingReason(records, r.label).length;
+    setPendingRemove({ index, label: r.label, count });
+  }
+
+  function confirmRemove() {
+    updateSettings({ [field]: reasons.filter((_, i) => i !== pendingRemove.index) });
+    setPendingRemove(null);
   }
 
   return (
@@ -178,7 +214,8 @@ function ReasonsSection({ isAdmin, title, field, reasons, placeholder }) {
       <div className={styles.formTitle} style={{ marginBottom: 4 }}>{title}</div>
       <p className={styles.formHint}>
         Clique sur « Justifié »/« Non justifié » pour changer si ce motif compte comme une absence
-        justifiée dans le suivi de présence.
+        justifiée dans le suivi de présence. Renommer un motif le renomme partout, y compris dans
+        les appels déjà enregistrés.
       </p>
 
       {isAdmin && (
@@ -194,34 +231,76 @@ function ReasonsSection({ isAdmin, title, field, reasons, placeholder }) {
             </Pill>
             <Button onClick={handleAdd}>Ajouter</Button>
           </div>
+          {renameError && <p style={{ marginTop: 12, fontSize: 13, color: "var(--color-red)" }}>{renameError}</p>}
         </div>
       )}
 
       <div className={styles.cardsGrid}>
         {reasons.map((r, i) => (
-          <div key={r.label} className={["card", styles.simpleCard].join(" ")}>
-            <span style={{ fontSize: 14, fontWeight: 600 }}>{r.label}</span>
+          <div key={r.label} className="card" style={{ padding: "16px 20px", display: "grid", gap: 10 }}>
             {isAdmin ? (
-              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                <Pill size="sm" tone="green" active={r.justified} onClick={() => toggleJustifiedAt(i)}>
-                  {r.justified ? "Justifié" : "Non justifié"}
-                </Pill>
-                <button
-                  onClick={() => removeAt(i)}
-                  style={{ background: "transparent", border: "none", color: "var(--color-red)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <TextInput
+                  value={draftFor(r)}
+                  onChange={(e) => setDrafts((prev) => ({ ...prev, [r.label]: e.target.value }))}
+                  style={{ flex: 1, padding: "8px 12px", fontSize: 14 }}
+                />
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => handleRename(i)}
+                  disabled={renamingLabel === r.label || draftFor(r).trim() === r.label}
                 >
-                  Retirer
-                </button>
+                  {renamingLabel === r.label ? "Renommage…" : "Enregistrer"}
+                </Button>
               </div>
             ) : (
-              <span style={{ fontSize: 12, color: r.justified ? "var(--color-green)" : "var(--color-muted)" }}>
-                {r.justified ? "Justifié" : "Non justifié"}
-              </span>
+              <span style={{ fontSize: 14, fontWeight: 600 }}>{r.label}</span>
             )}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              {isAdmin ? (
+                <>
+                  <Pill size="sm" tone="green" active={r.justified} onClick={() => toggleJustifiedAt(i)}>
+                    {r.justified ? "Justifié" : "Non justifié"}
+                  </Pill>
+                  <button
+                    onClick={() => requestRemove(i)}
+                    style={{ background: "transparent", border: "none", color: "var(--color-red)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Retirer
+                  </button>
+                </>
+              ) : (
+                <span style={{ fontSize: 12, color: r.justified ? "var(--color-green)" : "var(--color-muted)" }}>
+                  {r.justified ? "Justifié" : "Non justifié"}
+                </span>
+              )}
+            </div>
           </div>
         ))}
         {reasons.length === 0 && <div className={styles.emptyMsg}>Aucun motif configuré.</div>}
       </div>
+
+      {pendingRemove && (
+        <Modal
+          kicker={pendingRemove.count > 0 ? "Suppression impossible" : "Suppression"}
+          title={
+            pendingRemove.count > 0
+              ? `« ${pendingRemove.label} » est utilisé dans l'historique`
+              : `Retirer « ${pendingRemove.label} » ?`
+          }
+          text={
+            pendingRemove.count > 0
+              ? `${pendingRemove.count} appel(s) déjà enregistré(s) utilisent ce motif. Le retirer romprait le lien avec son statut justifié/non justifié dans les statistiques de présence pour ces appels passés. Renomme-le plutôt si besoin, ou laisse-le dans la liste.`
+              : "Aucun appel enregistré n'utilise ce motif — il peut être retiré sans impact sur l'historique."
+          }
+          confirmLabel={pendingRemove.count > 0 ? undefined : "Retirer"}
+          cancelLabel={pendingRemove.count > 0 ? "Compris" : "Annuler"}
+          danger={pendingRemove.count === 0}
+          onCancel={() => setPendingRemove(null)}
+          onConfirm={pendingRemove.count > 0 ? undefined : confirmRemove}
+        />
+      )}
     </div>
   );
 }

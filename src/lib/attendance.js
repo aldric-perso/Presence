@@ -11,6 +11,7 @@ import {
   setDoc,
   updateDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useCollection } from "./useCollection";
@@ -253,6 +254,47 @@ export function colorForPct(pct, seuil) {
 /** Appels contenant au moins une entrée pour cet élève — utilisé avant suppression/fusion. */
 export function recordsReferencingStudent(records, studentId) {
   return records.filter((r) => (r.entries || []).some((e) => e.studentId === studentId));
+}
+
+/** Appels contenant au moins une entrée avec ce motif — utilisé avant renommage/suppression d'un motif. */
+export function recordsReferencingReason(records, label) {
+  return records.filter((r) => (r.entries || []).some((e) => e.reason === label));
+}
+
+/**
+ * Renomme un motif dans tous les appels déjà enregistrés : les entrées stockent le libellé du
+ * motif tel quel (pas un identifiant), donc renommer le motif dans les réglages seul ne mettrait
+ * pas à jour l'historique. Chaque appel modifié reçoit une correction tracée (les règles Firestore
+ * exigent qu'une modification d'`entries` s'accompagne toujours d'une nouvelle entrée dans
+ * `corrections`). Appelé juste après la mise à jour du libellé dans settings/general.
+ */
+export async function renameReasonInRecords({ oldLabel, newLabel, records }) {
+  const affected = recordsReferencingReason(records, oldLabel);
+  if (affected.length === 0) return { recordsUpdated: 0 };
+
+  const actorSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
+  const actorName = actorSnap.exists() ? actorSnap.data().displayName : auth.currentUser.email;
+  const reason = `Renommage du motif : « ${oldLabel} » → « ${newLabel} »`;
+
+  const CHUNK = 400;
+  for (let i = 0; i < affected.length; i += CHUNK) {
+    const batch = writeBatch(db);
+    affected.slice(i, i + CHUNK).forEach((record) => {
+      const nextEntries = record.entries.map((e) => (e.reason === oldLabel ? { ...e, reason: newLabel } : e));
+      batch.update(doc(db, "attendanceRecords", record.id), {
+        entries: nextEntries,
+        corrections: arrayUnion({
+          by: auth.currentUser.uid,
+          byName: actorName,
+          at: new Date().toISOString(),
+          reason,
+        }),
+      });
+    });
+    await batch.commit();
+  }
+
+  return { recordsUpdated: affected.length };
 }
 
 /** Un ligne par élève et par matière : minutes dues, minutes vues, taux de présence. */
