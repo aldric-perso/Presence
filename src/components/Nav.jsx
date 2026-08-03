@@ -6,6 +6,7 @@ import styles from "./Nav.module.css";
 const LINKS = [
   { to: "/", label: "Aujourd'hui", end: true, match: ["/appel"] },
   { to: "/eleves", label: "Suivi des élèves" },
+  { to: "/registre", label: "Registre des appels" },
   { to: "/parametres", label: "Paramètres" },
 ];
 

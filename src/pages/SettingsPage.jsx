@@ -6,7 +6,6 @@ import StudentsAdminTab from "./settings/StudentsAdminTab";
 import ClassesAdminTab from "./settings/ClassesAdminTab";
 import SubjectsAdminTab from "./settings/SubjectsAdminTab";
 import TeachersAdminTab from "./settings/TeachersAdminTab";
-import RegisterTab from "./settings/RegisterTab";
 import ScheduleTab from "./settings/ScheduleTab";
 
 const TABS = [
@@ -14,7 +13,6 @@ const TABS = [
   { key: "classes", label: "Classes", Component: ClassesAdminTab },
   { key: "matieres", label: "Matières", Component: SubjectsAdminTab },
   { key: "enseignants", label: "Enseignants & admins", Component: TeachersAdminTab },
-  { key: "registre", label: "Registre des appels", Component: RegisterTab },
   { key: "horaires", label: "Horaires & seuil", Component: ScheduleTab },
 ];
 

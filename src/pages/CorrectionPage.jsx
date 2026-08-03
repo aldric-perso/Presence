@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import { useStudentsByIds } from "../lib/students";
 import {
   useAttendanceRecord,
@@ -20,6 +21,7 @@ import { TextInput, Field } from "../components/ui/Field";
 export default function CorrectionPage() {
   const { recordId } = useParams();
   const navigate = useNavigate();
+  const { user, isAdmin } = useAuth();
   const { record, loading } = useAttendanceRecord(recordId);
   const studentIds = useMemo(() => (record?.entries || []).map((e) => e.studentId), [record]);
   const { data: students, loading: studentsLoading } = useStudentsByIds(studentIds);
@@ -63,6 +65,9 @@ export default function CorrectionPage() {
 
   if (loading || studentsLoading) return <div className="page">Chargement…</div>;
   if (!record) return <div className="page">Appel introuvable.</div>;
+  if (!isAdmin && record.authorId !== user.uid) {
+    return <div className="page">Tu ne peux corriger que tes propres appels.</div>;
+  }
 
   const entries = students.map((s) => ({ studentId: s.id, ...(roll[s.id] || { status: STATUS.PRESENT }) }));
   const canSave = reason.trim().length > 4;
@@ -81,7 +86,7 @@ export default function CorrectionPage() {
           reason: e.status === STATUS.PRESENT ? null : e.reason,
         })),
       });
-      navigate("/parametres/registre");
+      navigate("/registre");
     } catch {
       setConfirmOpen(false);
       setError("L'enregistrement de la correction a échoué. Réessaie.");
@@ -182,7 +187,7 @@ export default function CorrectionPage() {
       )}
 
       <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-        <Button variant="ghost" onClick={() => navigate("/parametres/registre")}>
+        <Button variant="ghost" onClick={() => navigate("/registre")}>
           Annuler
         </Button>
         <Button disabled={!canSave} onClick={() => setConfirmOpen(true)}>

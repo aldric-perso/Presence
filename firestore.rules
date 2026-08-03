@@ -75,7 +75,8 @@ service cloud.firestore {
     // Un appel n'est jamais recréé : l'ID déterministe (date_classe_matière_créneau) fait que
     // Firestore refuse nativement toute tentative de "create" sur un document déjà existant —
     // c'est ce qui garantit l'unicité d'un appel, sans transaction serveur.
-    // Une fois créé, seul un admin peut le modifier (correction, motif obligatoire conservé).
+    // Une fois créé, l'auteur peut corriger son propre appel ; un admin peut corriger n'importe
+    // lequel (motif obligatoire conservé dans tous les cas).
     match /attendanceRecords/{recordId} {
       allow read: if hasProfile();
       allow create: if hasProfile() &&
@@ -83,7 +84,7 @@ service cloud.firestore {
         request.resource.data.authorName == myProfile().displayName &&
         request.resource.data.locked == true &&
         request.resource.data.corrections.size() == 0;
-      allow update: if isAdmin() &&
+      allow update: if (isAdmin() || resource.data.authorId == request.auth.uid) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['entries', 'corrections']) &&
         request.resource.data.corrections.size() == resource.data.corrections.size() + 1;
       allow delete: if false;

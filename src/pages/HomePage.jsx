@@ -65,7 +65,7 @@ export default function HomePage() {
               {r.entries.filter((e) => e.status === STATUS.ABSENT).length} absents
             </div>
             <div style={{ textAlign: "right" }}>
-              <Button as={Link} to="/parametres/registre" variant="ghost" size="sm">
+              <Button as={Link} to="/registre" variant="ghost" size="sm">
                 Consulter
               </Button>
             </div>

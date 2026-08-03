@@ -237,7 +237,7 @@ export default function TakeAttendancePage() {
         <Modal
           kicker="Confirmation"
           title="Enregistrer cet appel ?"
-          text="Une fois validé, l'appel est verrouillé et signé à ton nom. Seul un administrateur pourra le corriger."
+          text="Une fois validé, l'appel est verrouillé et signé à ton nom. Tu pourras le corriger toi-même par la suite si besoin, tout comme un administrateur."
           detail={`${classe?.name} · ${subject?.name} · ${timeSlot?.label}`}
           confirmLabel={submitting ? "Enregistrement…" : "Enregistrer"}
           cancelLabel="Relire"
