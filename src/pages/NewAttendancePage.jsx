@@ -15,10 +15,14 @@ import Modal from "../components/ui/Modal";
 export default function NewAttendancePage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const { data: classes } = useClasses();
+  const { data: allClasses } = useClasses();
   const { data: allSubjects } = useSubjects();
   const { data: timeSlots } = useTimeSlots();
 
+  const classes = useMemo(
+    () => allClasses.filter((c) => (profile?.classIds || []).includes(c.id)),
+    [allClasses, profile],
+  );
   const subjects = useMemo(
     () => allSubjects.filter((s) => (profile?.subjectIds || []).includes(s.id)),
     [allSubjects, profile],
@@ -145,6 +149,13 @@ export default function NewAttendancePage() {
             </Select>
           </Field>
         </div>
+
+        {classes.length === 0 && (
+          <Callout tone="warning">
+            Aucune classe ne t'a été affectée. Demande à un administrateur de mettre à jour tes
+            affectations dans Paramètres → Enseignants & admins.
+          </Callout>
+        )}
 
         {subjects.length === 0 && (
           <Callout tone="warning">
