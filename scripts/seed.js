@@ -1,5 +1,6 @@
-// Seed des données de référence (matières, créneaux, seuil par défaut) sur un projet Firebase
-// fraîchement créé. Idempotent : peut être relancé sans dupliquer ni écraser des réglages modifiés.
+// Seed des données de référence (matières, créneaux, seuil par défaut, motifs) sur un projet
+// Firebase fraîchement créé. Idempotent : peut être relancé sans dupliquer ni écraser des réglages
+// modifiés.
 //
 // Usage : node scripts/seed.js
 
@@ -19,13 +20,31 @@ const db = getFirestore();
 const SUBJECTS = ["Français", "Mathématiques", "Histoire-Géo", "Anglais", "Sciences", "Arts plastiques"];
 
 const TIME_SLOTS = [
-  { id: "c1", label: "09h00 – 09h50", name: "Première séance du matin", order: 1 },
-  { id: "c2", label: "10h00 – 10h50", name: "Deuxième séance du matin", order: 2 },
-  { id: "c3", label: "11h00 – 11h50", name: "Troisième séance du matin", order: 3 },
-  { id: "c4", label: "14h00 – 14h50", name: "Première séance de l'après-midi", order: 4 },
-  { id: "c5", label: "15h00 – 15h50", name: "Deuxième séance de l'après-midi", order: 5 },
-  { id: "c6", label: "16h00 – 16h50", name: "Séance de soutien", order: 6 },
+  { id: "c1", label: "09h00 – 09h50", order: 1 },
+  { id: "c2", label: "10h00 – 10h50", order: 2 },
+  { id: "c3", label: "11h00 – 11h50", order: 3 },
+  { id: "c4", label: "14h00 – 14h50", order: 4 },
+  { id: "c5", label: "15h00 – 15h50", order: 5 },
+  { id: "c6", label: "16h00 – 16h50", order: 6 },
 ];
+
+const DEFAULT_ABSENCE_REASONS = [
+  { label: "Soins / examen", justified: true },
+  { label: "Consultation externe", justified: true },
+  { label: "État de santé", justified: true },
+  { label: "Sortie autorisée", justified: true },
+  { label: "Non justifié", justified: false },
+];
+
+const DEFAULT_LATE_REASONS = [
+  { label: "Soins prolongés", justified: true },
+  { label: "Transport interne", justified: true },
+  { label: "Kinésithérapie", justified: true },
+  { label: "Réveil tardif", justified: false },
+  { label: "Non justifié", justified: false },
+];
+
+const DEFAULT_LATE_MINUTE_CHOICES = [5, 10, 15, 30];
 
 function slug(str) {
   return str
@@ -53,7 +72,7 @@ async function main() {
     const ref = slotsCol.doc(slot.id);
     const snap = await ref.get();
     if (!snap.exists) {
-      await ref.set({ label: slot.label, name: slot.name, order: slot.order });
+      await ref.set({ label: slot.label, order: slot.order });
       console.log("Créneau créé :", slot.label);
     }
   }
@@ -61,8 +80,13 @@ async function main() {
   const settingsRef = db.collection("settings").doc("general");
   const settingsSnap = await settingsRef.get();
   if (!settingsSnap.exists) {
-    await settingsRef.set({ presenceThreshold: 80 });
-    console.log("Seuil de présence par défaut initialisé à 80%.");
+    await settingsRef.set({
+      presenceThreshold: 80,
+      absenceReasons: DEFAULT_ABSENCE_REASONS,
+      lateReasons: DEFAULT_LATE_REASONS,
+      lateMinuteChoices: DEFAULT_LATE_MINUTE_CHOICES,
+    });
+    console.log("Réglages par défaut initialisés (seuil, motifs, saisies rapides).");
   }
 
   console.log("\nSeed terminé.");

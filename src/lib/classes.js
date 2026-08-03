@@ -31,10 +31,9 @@ export function findDuplicateClass(classes, name) {
   return classes.find((c) => normalize(c.name) === key) || null;
 }
 
-export async function createClass({ name, unit, referentId, referentName }) {
+export async function createClass({ name, referentId, referentName }) {
   await addDoc(classesRef, {
     name: name.trim(),
-    unit: unit.trim() || "—",
     referentId: referentId || null,
     referentName: referentName || "—",
     archived: false,

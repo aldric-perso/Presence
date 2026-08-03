@@ -2,14 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useStudentsByIds } from "../lib/students";
-import {
-  useAttendanceRecord,
-  correctAttendanceRecord,
-  STATUS,
-  ABSENCE_REASONS,
-  LATE_REASONS,
-  LATE_MINUTE_CHOICES,
-} from "../lib/attendance";
+import { useAttendanceRecord, correctAttendanceRecord, STATUS } from "../lib/attendance";
+import { useSettings } from "../lib/settings";
 import { formatDateShort, formatTimestamp } from "../lib/dates";
 import { Pill } from "../components/ui/Pill";
 import Avatar from "../components/ui/Avatar";
@@ -22,6 +16,7 @@ export default function CorrectionPage() {
   const { recordId } = useParams();
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
+  const { settings } = useSettings();
   const { record, loading } = useAttendanceRecord(recordId);
   const studentIds = useMemo(() => (record?.entries || []).map((e) => e.studentId), [record]);
   const { data: students, loading: studentsLoading } = useStudentsByIds(studentIds);
@@ -123,7 +118,7 @@ export default function CorrectionPage() {
       <div className="card">
         {students.map((s) => {
           const entry = roll[s.id] || { status: STATUS.PRESENT, minutesMissed: 0, reason: null };
-          const reasons = entry.status === STATUS.LATE ? LATE_REASONS : ABSENCE_REASONS;
+          const reasons = entry.status === STATUS.LATE ? settings.lateReasons : settings.absenceReasons;
           return (
             <div key={s.id} style={{ borderBottom: "1px solid var(--color-line)", padding: "14px 22px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -145,7 +140,7 @@ export default function CorrectionPage() {
                 <div className="animate-pop" style={{ marginTop: 12, marginLeft: 48, display: "grid", gap: 10 }}>
                   {entry.status === STATUS.LATE && (
                     <div style={{ display: "flex", gap: 6 }}>
-                      {LATE_MINUTE_CHOICES.map((m) => (
+                      {settings.lateMinuteChoices.map((m) => (
                         <Pill key={m} size="xs" tone="amber" active={entry.minutesMissed === m} onClick={() => patchEntry(s.id, { minutesMissed: m })}>
                           {m} min
                         </Pill>
@@ -154,8 +149,8 @@ export default function CorrectionPage() {
                   )}
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {reasons.map((r) => (
-                      <Pill key={r} size="xs" active={entry.reason === r} onClick={() => patchEntry(s.id, { reason: r })}>
-                        {r}
+                      <Pill key={r.label} size="xs" active={entry.reason === r.label} onClick={() => patchEntry(s.id, { reason: r.label })}>
+                        {r.label}
                       </Pill>
                     ))}
                   </div>

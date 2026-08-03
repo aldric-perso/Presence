@@ -4,13 +4,8 @@ import { useClasses } from "../lib/classes";
 import { useSubjects } from "../lib/subjects";
 import { useTimeSlots } from "../lib/timeSlots";
 import { useStudentsByClass } from "../lib/students";
-import {
-  submitAttendanceRecord,
-  STATUS,
-  ABSENCE_REASONS,
-  LATE_REASONS,
-  LATE_MINUTE_CHOICES,
-} from "../lib/attendance";
+import { useSettings } from "../lib/settings";
+import { submitAttendanceRecord, STATUS } from "../lib/attendance";
 import { formatDateLabel } from "../lib/dates";
 import { SegmentedControl, Pill } from "../components/ui/Pill";
 import Avatar from "../components/ui/Avatar";
@@ -34,6 +29,7 @@ export default function TakeAttendancePage() {
   const { data: subjects } = useSubjects();
   const { data: timeSlots } = useTimeSlots();
   const { data: students, loading: studentsLoading } = useStudentsByClass(classId);
+  const { settings } = useSettings();
 
   const classe = classes.find((c) => c.id === classId);
   const subject = subjects.find((s) => s.id === subjectId);
@@ -201,6 +197,7 @@ export default function TakeAttendancePage() {
                 key={s.id}
                 student={s}
                 entry={roll[s.id] || defaultEntry()}
+                settings={settings}
                 onSetStatus={(status) => setStatus(s.id, status)}
                 onPatch={(patch) => patchEntry(s.id, patch)}
               />
@@ -213,6 +210,7 @@ export default function TakeAttendancePage() {
                 key={s.id}
                 student={s}
                 entry={roll[s.id] || defaultEntry()}
+                settings={settings}
                 onCycle={() => cycleStatus(s.id)}
                 onPatch={(patch) => patchEntry(s.id, patch)}
               />
@@ -249,15 +247,15 @@ export default function TakeAttendancePage() {
   );
 }
 
-function ReasonPicker({ entry, onPatch }) {
-  const reasons = entry.status === STATUS.LATE ? LATE_REASONS : ABSENCE_REASONS;
+function ReasonPicker({ entry, onPatch, settings }) {
+  const reasons = entry.status === STATUS.LATE ? settings.lateReasons : settings.absenceReasons;
   return (
     <div>
       {entry.status === STATUS.LATE && (
         <div style={{ marginBottom: 14 }}>
           <div className={styles.detailLabel}>Temps d'absence</div>
           <div className={styles.chipRow}>
-            {LATE_MINUTE_CHOICES.map((m) => (
+            {settings.lateMinuteChoices.map((m) => (
               <Pill
                 key={m}
                 size="sm"
@@ -277,8 +275,8 @@ function ReasonPicker({ entry, onPatch }) {
         </div>
         <div className={styles.chipRow}>
           {reasons.map((r) => (
-            <Pill key={r} size="sm" active={entry.reason === r} onClick={() => onPatch({ reason: r })}>
-              {r}
+            <Pill key={r.label} size="sm" active={entry.reason === r.label} onClick={() => onPatch({ reason: r.label })}>
+              {r.label}
             </Pill>
           ))}
         </div>
@@ -287,7 +285,7 @@ function ReasonPicker({ entry, onPatch }) {
   );
 }
 
-function RollRow({ student, entry, onSetStatus, onPatch }) {
+function RollRow({ student, entry, onSetStatus, onPatch, settings }) {
   return (
     <div className={styles.rollRow}>
       <div className={styles.rollRowMain}>
@@ -310,7 +308,7 @@ function RollRow({ student, entry, onSetStatus, onPatch }) {
       {entry.status !== STATUS.PRESENT && (
         <div className={[styles.detail, "animate-pop"].join(" ")}>
           <div className={styles.detailBox}>
-            <ReasonPicker entry={entry} onPatch={onPatch} />
+            <ReasonPicker entry={entry} onPatch={onPatch} settings={settings} />
           </div>
         </div>
       )}
@@ -318,7 +316,7 @@ function RollRow({ student, entry, onSetStatus, onPatch }) {
   );
 }
 
-function RollCard({ student, entry, onCycle, onPatch }) {
+function RollCard({ student, entry, onCycle, onPatch, settings }) {
   const toneClass =
     entry.status === STATUS.PRESENT ? styles.present : entry.status === STATUS.LATE ? styles.late : styles.absent;
   const summary =
@@ -348,7 +346,7 @@ function RollCard({ student, entry, onCycle, onPatch }) {
       </button>
       {entry.status !== STATUS.PRESENT && (
         <div className={[styles.cardDetail, "animate-pop"].join(" ")}>
-          <ReasonPicker entry={entry} onPatch={onPatch} />
+          <ReasonPicker entry={entry} onPatch={onPatch} settings={settings} />
         </div>
       )}
     </div>

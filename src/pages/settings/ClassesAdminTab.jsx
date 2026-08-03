@@ -13,7 +13,6 @@ export default function ClassesAdminTab({ isAdmin }) {
   const { data: students } = useStudents();
 
   const [name, setName] = useState("");
-  const [unit, setUnit] = useState("");
   const [referentId, setReferentId] = useState(teachers[0]?.id || "");
   const [message, setMessage] = useState("");
   const [pendingArchive, setPendingArchive] = useState(null);
@@ -26,9 +25,8 @@ export default function ClassesAdminTab({ isAdmin }) {
       return;
     }
     const referent = teachers.find((t) => t.id === referentId);
-    await createClass({ name, unit, referentId: referent?.id, referentName: referent?.displayName });
+    await createClass({ name, referentId: referent?.id, referentName: referent?.displayName });
     setName("");
-    setUnit("");
     setMessage(`Classe « ${name.trim()} » créée.`);
   }
 
@@ -40,12 +38,9 @@ export default function ClassesAdminTab({ isAdmin }) {
           <p className={styles.formHint}>
             Le nom est comparé aux classes existantes en ignorant accents, tirets, espaces et casse.
           </p>
-          <div className={styles.formGrid} style={{ gridTemplateColumns: "1.2fr 1fr 1fr auto" }}>
+          <div className={styles.formGrid} style={{ gridTemplateColumns: "1.4fr 1fr auto" }}>
             <Field label="Nom de la classe">
-              <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="3ᵉ – Pédiatrie C" />
-            </Field>
-            <Field label="Unité de soins">
-              <TextInput value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="Pédiatrie générale" />
+              <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="3ᵉ" />
             </Field>
             <Field label="Enseignant référent">
               <Select value={referentId} onChange={(e) => setReferentId(e.target.value)}>
@@ -63,9 +58,8 @@ export default function ClassesAdminTab({ isAdmin }) {
       )}
 
       <div className={["card", styles.listCard].join(" ")}>
-        <div className={styles.tableHead} style={{ gridTemplateColumns: "1.3fr 1fr 0.7fr 1.4fr 100px" }}>
+        <div className={styles.tableHead} style={{ gridTemplateColumns: "1.3fr 0.7fr 1.6fr 100px" }}>
           <span>Classe</span>
-          <span>Unité</span>
           <span>Effectif</span>
           <span>Enseignants affectés</span>
           <span></span>
@@ -74,9 +68,8 @@ export default function ClassesAdminTab({ isAdmin }) {
           const effectif = students.filter((s) => s.classId === c.id).length;
           const profs = teachers.filter((t) => (t.classIds || []).includes(c.id)).map((t) => t.displayName);
           return (
-            <div key={c.id} className={styles.tableRow} style={{ gridTemplateColumns: "1.3fr 1fr 0.7fr 1.4fr 100px" }}>
+            <div key={c.id} className={styles.tableRow} style={{ gridTemplateColumns: "1.3fr 0.7fr 1.6fr 100px" }}>
               <span style={{ fontWeight: 600 }}>{c.name}</span>
-              <span style={{ color: "var(--color-ink-soft)" }}>{c.unit}</span>
               <span style={{ color: "var(--color-ink-soft)" }}>{effectif} élèves</span>
               <span style={{ color: "var(--color-ink-soft)", fontSize: 13 }}>
                 {profs.join(", ") || "Aucun enseignant affecté"}

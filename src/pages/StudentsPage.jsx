@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useStudents } from "../lib/students";
 import { useClasses } from "../lib/classes";
 import { useAllRecords, computeStudentStats, exportStudentsCsv } from "../lib/attendance";
-import { useSettings } from "../lib/settings";
+import { useSettings, buildReasonsLookup } from "../lib/settings";
 import { formatDateShort } from "../lib/dates";
 import { SegmentedControl } from "../components/ui/Pill";
 import Button from "../components/ui/Button";
@@ -26,10 +26,14 @@ export default function StudentsPage() {
 
   const stats = useMemo(() => {
     const enriched = students.map((s) => ({ ...s, className: classById.get(s.classId)?.name || "—" }));
-    return computeStudentStats({ students: enriched, records, seuil: settings.presenceThreshold }).sort(
-      (a, b) => a.pct - b.pct,
-    );
-  }, [students, classById, records, settings.presenceThreshold]);
+    const reasonsLookup = buildReasonsLookup(settings);
+    return computeStudentStats({
+      students: enriched,
+      records,
+      seuil: settings.presenceThreshold,
+      reasonsLookup,
+    }).sort((a, b) => a.pct - b.pct);
+  }, [students, classById, records, settings]);
 
   const selected = stats.find((s) => s.id === selectedId) || stats[0];
   const loading = studentsLoading || recordsLoading;

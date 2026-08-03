@@ -4,13 +4,38 @@ import { db, DEFAULT_SEUIL } from "../firebase";
 
 const settingsDoc = doc(db, "settings", "general");
 
+export const DEFAULT_ABSENCE_REASONS = [
+  { label: "Soins / examen", justified: true },
+  { label: "Consultation externe", justified: true },
+  { label: "État de santé", justified: true },
+  { label: "Sortie autorisée", justified: true },
+  { label: "Non justifié", justified: false },
+];
+
+export const DEFAULT_LATE_REASONS = [
+  { label: "Soins prolongés", justified: true },
+  { label: "Transport interne", justified: true },
+  { label: "Kinésithérapie", justified: true },
+  { label: "Réveil tardif", justified: false },
+  { label: "Non justifié", justified: false },
+];
+
+export const DEFAULT_LATE_MINUTE_CHOICES = [5, 10, 15, 30];
+
+const DEFAULT_SETTINGS = {
+  presenceThreshold: DEFAULT_SEUIL,
+  absenceReasons: DEFAULT_ABSENCE_REASONS,
+  lateReasons: DEFAULT_LATE_REASONS,
+  lateMinuteChoices: DEFAULT_LATE_MINUTE_CHOICES,
+};
+
 export function useSettings() {
-  const [settings, setSettings] = useState({ presenceThreshold: DEFAULT_SEUIL });
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     return onSnapshot(settingsDoc, (snap) => {
-      setSettings(snap.exists() ? snap.data() : { presenceThreshold: DEFAULT_SEUIL });
+      setSettings({ ...DEFAULT_SETTINGS, ...(snap.exists() ? snap.data() : {}) });
       setLoading(false);
     });
   }, []);
@@ -18,6 +43,14 @@ export function useSettings() {
   return { settings, loading };
 }
 
-export async function setPresenceThreshold(value) {
-  await setDoc(settingsDoc, { presenceThreshold: value }, { merge: true });
+export async function updateSettings(patch) {
+  await setDoc(settingsDoc, patch, { merge: true });
+}
+
+/** Map "libellé du motif" -> justifié, combinant motifs de retard et d'absence. */
+export function buildReasonsLookup(settings) {
+  const map = new Map();
+  for (const r of settings.absenceReasons || []) map.set(r.label, r.justified);
+  for (const r of settings.lateReasons || []) map.set(r.label, r.justified);
+  return map;
 }

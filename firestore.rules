@@ -59,10 +59,10 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
-    // --- Créneaux horaires (fixes, gérés via script de seed) ---
+    // --- Créneaux horaires ---
     match /timeSlots/{slotId} {
       allow read: if hasProfile();
-      allow write: if false;
+      allow create, update, delete: if isAdmin();
     }
 
     // --- Réglages généraux (ex. seuil de présence) ---

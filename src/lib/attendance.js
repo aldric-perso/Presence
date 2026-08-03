@@ -21,32 +21,6 @@ const recordsRef = collection(db, "attendanceRecords");
 
 export const STATUS = { PRESENT: "present", LATE: "retard", ABSENT: "absent" };
 
-export const ABSENCE_REASONS = [
-  "Soins / examen",
-  "Consultation externe",
-  "État de santé",
-  "Sortie autorisée",
-  "Non justifié",
-];
-export const LATE_REASONS = [
-  "Soins prolongés",
-  "Transport interne",
-  "Kinésithérapie",
-  "Réveil tardif",
-  "Non justifié",
-];
-export const JUSTIFIED_REASONS = new Set([
-  "Soins / examen",
-  "Hospitalisation chambre",
-  "Consultation externe",
-  "État de santé",
-  "Sortie autorisée",
-  "Soins prolongés",
-  "Transport interne",
-  "Kinésithérapie",
-]);
-export const LATE_MINUTE_CHOICES = [5, 10, 15, 30];
-
 export function useTodayRecords() {
   const q = useMemo(
     () => query(recordsRef, where("date", "==", todayISO()), orderBy("createdAt", "desc")),
@@ -199,7 +173,7 @@ export async function correctAttendanceRecord({ recordId, entries, reason }) {
  * Calcule, pour chaque élève, les minutes dues/vues, le taux de présence global et par matière,
  * ainsi que l'historique des absences/retards — à partir des appels verrouillés déjà enregistrés.
  */
-export function computeStudentStats({ students, records, seuil }) {
+export function computeStudentStats({ students, records, seuil, reasonsLookup = new Map() }) {
   const byStudent = new Map(
     students.map((s) => [
       s.id,
@@ -234,7 +208,7 @@ export function computeStudentStats({ students, records, seuil }) {
           subject: record.subjectName || "—",
           reason: entry.reason || "—",
           minutesMissed: entry.status === STATUS.ABSENT ? sessionMinutes : entry.minutesMissed || 0,
-          justified: JUSTIFIED_REASONS.has(entry.reason),
+          justified: reasonsLookup.get(entry.reason) ?? false,
         });
       }
 
