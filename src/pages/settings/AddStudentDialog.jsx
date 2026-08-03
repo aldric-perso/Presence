@@ -4,6 +4,7 @@ import { Field, Select, TextInput } from "../../components/ui/Field";
 import Button from "../../components/ui/Button";
 import { todayISO } from "../../lib/dates";
 import styles from "./StudentImportDialog.module.css";
+import sharedStyles from "./Shared.module.css";
 
 export default function AddStudentDialog({ students, classes, classById, onClose, onAdded }) {
   const [firstName, setFirstName] = useState("");
@@ -64,7 +65,7 @@ export default function AddStudentDialog({ students, classes, classById, onClose
         </div>
 
         <div className={styles.body}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div className={sharedStyles.responsiveFormGrid} style={{ gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <Field label="Prénom">
               <TextInput
                 value={firstName}
@@ -104,7 +105,7 @@ export default function AddStudentDialog({ students, classes, classById, onClose
               <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-amber-dark)" }}>
                 Un élève très proche existe déjà
               </div>
-              <div style={{ display: "flex", gap: 18, margin: "14px 0 16px" }}>
+              <div className={sharedStyles.responsiveTwoCol} style={{ gap: 18, margin: "14px 0 16px" }}>
                 <div style={{ flex: 1, background: "#fff", borderRadius: 12, padding: "14px 16px" }}>
                   <div style={{ fontSize: 11, textTransform: "uppercase", color: "var(--color-muted)", fontWeight: 600 }}>
                     Existant

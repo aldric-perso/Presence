@@ -100,3 +100,28 @@
   line-height: 1.5;
   margin-top: 18px;
 }
+
+@media (max-width: 768px) {
+  .wrap {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .hero {
+    padding: 32px 24px;
+    gap: 24px;
+  }
+
+  .title {
+    font-size: 34px;
+    max-width: none;
+  }
+
+  .tagline {
+    max-width: none;
+  }
+
+  .formSide {
+    padding: 32px 24px 48px;
+  }
+}

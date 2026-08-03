@@ -11,6 +11,7 @@ import { Field, Select } from "../components/ui/Field";
 import Button from "../components/ui/Button";
 import Callout from "../components/ui/Callout";
 import Modal from "../components/ui/Modal";
+import styles from "./settings/Shared.module.css";
 
 export default function NewAttendancePage() {
   const navigate = useNavigate();
@@ -129,7 +130,7 @@ export default function NewAttendancePage() {
           )}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+        <div className={styles.responsiveFormGrid} style={{ gridTemplateColumns: "1fr 1fr", gap: 18 }}>
           <Field label="Classe">
             <Select value={classId} onChange={(e) => setClassId(e.target.value)}>
               {classes.map((c) => (

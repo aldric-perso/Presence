@@ -131,10 +131,10 @@ export default function CorrectionPage() {
           const reasons = entry.status === STATUS.LATE ? settings.lateReasons : settings.absenceReasons;
           return (
             <div key={s.id} style={{ borderBottom: "1px solid var(--color-line)", padding: "14px 22px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
                 <Avatar name={s.fullName} size={34} />
-                <div style={{ flex: 1, fontSize: 15, fontWeight: 600 }}>{s.fullName}</div>
-                <div style={{ display: "flex", gap: 6 }}>
+                <div style={{ flex: 1, minWidth: 120, fontSize: 15, fontWeight: 600 }}>{s.fullName}</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   <Pill size="sm" tone="green" active={entry.status === STATUS.PRESENT} onClick={() => setStatus(s.id, STATUS.PRESENT)}>
                     Présent
                   </Pill>
@@ -149,7 +149,7 @@ export default function CorrectionPage() {
               {entry.status !== STATUS.PRESENT && (
                 <div className="animate-pop" style={{ marginTop: 12, marginLeft: 48, display: "grid", gap: 10 }}>
                   {entry.status === STATUS.LATE && (
-                    <div style={{ display: "flex", gap: 6 }}>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                       {settings.lateMinuteChoices.map((m) => (
                         <Pill key={m} size="xs" tone="amber" active={entry.minutesMissed === m} onClick={() => patchEntry(s.id, { minutesMissed: m })}>
                           {m} min

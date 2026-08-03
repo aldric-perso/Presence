@@ -1,11 +1,12 @@
 import { Outlet } from "react-router-dom";
 import Nav from "./Nav";
+import styles from "./Layout.module.css";
 
 export default function Layout() {
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "var(--color-bg)" }}>
+    <div className={styles.shell} style={{ background: "var(--color-bg)" }}>
       <Nav />
-      <main style={{ flex: 1, minWidth: 0 }} className="animate-fade">
+      <main className={[styles.main, "animate-fade"].join(" ")}>
         <Outlet />
       </main>
     </div>

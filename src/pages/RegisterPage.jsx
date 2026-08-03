@@ -57,7 +57,7 @@ export default function RegisterPage() {
 
   return (
     <div className="page">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 8, flexWrap: "wrap" }}>
         <h1>Registre des appels</h1>
         {isAdmin && (
           <Button variant="ghost" size="sm" onClick={() => setFilterOpen((v) => !v)}>
@@ -117,8 +117,8 @@ export default function RegisterPage() {
 
           return (
             <div key={r.id} className="card" style={{ padding: "20px 22px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-                <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: 220 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize: 15, fontWeight: 600 }}>
                       {r.className} — {r.subjectName}

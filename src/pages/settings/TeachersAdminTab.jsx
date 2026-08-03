@@ -85,7 +85,7 @@ export default function TeachersAdminTab({ isAdmin }) {
             L'enseignant reçoit un lien pour définir son mot de passe. Un administrateur peut créer
             des classes, des matières et corriger un appel verrouillé.
           </p>
-          <div className={styles.formGrid} style={{ gridTemplateColumns: "1.2fr 1.2fr auto auto" }}>
+          <div className={[styles.formGrid, styles.responsiveFormGrid].join(" ")} style={{ gridTemplateColumns: "1.2fr 1.2fr auto auto" }}>
             <Field label="Nom complet">
               <TextInput value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Hélène Vasseur" />
             </Field>

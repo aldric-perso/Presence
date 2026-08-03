@@ -14,6 +14,7 @@ import Badge from "../../components/ui/Badge";
 import Callout from "../../components/ui/Callout";
 import { Field, Select, TextInput } from "../../components/ui/Field";
 import styles from "./StudentImportDialog.module.css";
+import sharedStyles from "./Shared.module.css";
 
 export default function StudentManageDialog({ student, classes, classById, students, records, isAdmin, onClose }) {
   const [firstName, setFirstName] = useState(student.firstName);
@@ -117,7 +118,7 @@ export default function StudentManageDialog({ student, classes, classById, stude
             <>
               <div className={styles.section}>
                 <div className={styles.sectionTitle}>Renommer</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
+                <div className={sharedStyles.responsiveFormGrid} style={{ gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
                   <Field label="Prénom">
                     <TextInput value={firstName} onChange={(e) => setFirstName(e.target.value)} />
                   </Field>
@@ -132,7 +133,7 @@ export default function StudentManageDialog({ student, classes, classById, stude
 
               <div className={styles.section}>
                 <div className={styles.sectionTitle}>Changer de classe</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
+                <div className={sharedStyles.responsiveFormGrid} style={{ gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
                   <Field label="Nouvelle classe">
                     <Select value={newClassId} onChange={(e) => setNewClassId(e.target.value)}>
                       {classes.map((c) => (
@@ -158,7 +159,7 @@ export default function StudentManageDialog({ student, classes, classById, stude
                     Marquer comme de retour
                   </Button>
                 ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "end" }}>
+                  <div className={sharedStyles.responsiveFormGrid} style={{ gridTemplateColumns: "1fr auto", gap: 10, alignItems: "end" }}>
                     <Field label="Départ le">
                       <TextInput type="date" value={departDate} onChange={(e) => setDepartDate(e.target.value)} />
                     </Field>
@@ -221,7 +222,7 @@ export default function StudentManageDialog({ student, classes, classById, stude
                 <div style={{ marginBottom: 12 }}>
                   <Callout tone="danger">Cette action est irréversible. Confirmer la suppression ?</Callout>
                 </div>
-                <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   <Button variant="ghost" size="sm" onClick={() => setDeleteStage(null)} disabled={deleting}>
                     Annuler
                   </Button>
@@ -239,7 +240,7 @@ export default function StudentManageDialog({ student, classes, classById, stude
                   à l'élève choisi (une correction tracée est ajoutée à chaque appel modifié), puis
                   cette fiche sera supprimée.
                 </p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "end" }}>
+                <div className={sharedStyles.responsiveFormGrid} style={{ gridTemplateColumns: "1fr auto", gap: 10, alignItems: "end" }}>
                   <Field label="Fusionner vers">
                     <Select value={mergeTargetId} onChange={(e) => setMergeTargetId(e.target.value)}>
                       <option value="">— Choisir un élève —</option>

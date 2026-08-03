@@ -144,3 +144,37 @@
   color: var(--color-muted);
   font-size: 14px;
 }
+
+/* Utilitaires responsive : à ajouter en className, en plus d'un style inline existant
+   (ex. gridTemplateColumns), pour le surcharger sous 768px sans toucher au JSX. */
+.responsiveFormGrid {
+  display: grid;
+}
+.responsiveTwoCol {
+  display: flex;
+}
+
+@media (max-width: 768px) {
+  .responsiveFormGrid {
+    grid-template-columns: 1fr !important;
+  }
+  .responsiveTwoCol {
+    flex-direction: column !important;
+  }
+
+  .listCard {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tableHead,
+  .tableRow {
+    min-width: 560px;
+  }
+
+  .cardsGrid {
+    grid-template-columns: 1fr;
+  }
+  .groupHeader {
+    flex-wrap: wrap;
+  }
+}

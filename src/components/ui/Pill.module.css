@@ -76,3 +76,12 @@
   font-weight: 600;
   box-shadow: var(--shadow-raised);
 }
+
+@media (max-width: 768px) {
+  .sm {
+    padding: 10px 15px;
+  }
+  .xs {
+    padding: 9px 13px;
+  }
+}

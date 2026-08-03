@@ -119,3 +119,43 @@
   font-size: 13px;
   color: var(--color-ink-soft);
 }
+
+@media (max-width: 768px) {
+  .topbar {
+    padding: 14px 16px;
+  }
+  .topbarInner {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .title {
+    font-size: 22px;
+  }
+  .counts {
+    gap: 14px;
+  }
+
+  .body {
+    padding: 20px 16px 160px;
+  }
+
+  .rollRowMain {
+    padding: 12px 16px;
+  }
+  .actions {
+    flex-wrap: wrap;
+  }
+  .detail {
+    padding: 4px 16px 16px 16px;
+  }
+
+  .footer {
+    left: 0;
+    bottom: var(--bottom-nav-height);
+    padding: 12px 16px;
+  }
+  .footerInner {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+}

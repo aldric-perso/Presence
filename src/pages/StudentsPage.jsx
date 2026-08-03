@@ -24,6 +24,12 @@ export default function StudentsPage() {
   const [selectedId, setSelectedId] = useState(() => params.get("id"));
   const [view, setView] = useState("fiche");
   const [search, setSearch] = useState("");
+  const [mobileShowDetail, setMobileShowDetail] = useState(() => !!params.get("id"));
+
+  function selectStudent(id) {
+    setSelectedId(id);
+    setMobileShowDetail(true);
+  }
 
   const classById = useMemo(() => new Map(classes.map((c) => [c.id, c])), [classes]);
 
@@ -68,7 +74,13 @@ export default function StudentsPage() {
         </div>
       ) : (
         <div className={styles.layout}>
-          <div className={["card", styles.listPanel].join(" ")}>
+          <div
+            className={[
+              "card",
+              styles.listPanel,
+              mobileShowDetail ? styles.mobileHide : "",
+            ].join(" ")}
+          >
             <div className={styles.searchBox}>
               <TextInput
                 value={search}
@@ -82,7 +94,7 @@ export default function StudentsPage() {
                 <button
                   key={s.id}
                   className={[styles.listItem, s.id === selected?.id ? styles.selected : ""].join(" ")}
-                  onClick={() => setSelectedId(s.id)}
+                  onClick={() => selectStudent(s.id)}
                 >
                   <div style={{ flex: 1 }}>
                     <div className={styles.listItemName}>{s.fullName}</div>
@@ -97,7 +109,10 @@ export default function StudentsPage() {
             </div>
           </div>
 
-          <div>
+          <div className={!mobileShowDetail ? styles.mobileHide : ""}>
+            <button type="button" className={styles.backButton} onClick={() => setMobileShowDetail(false)}>
+              ← Retour à la liste
+            </button>
             <div className={styles.toolbar}>
               <SegmentedControl
                 value={view}

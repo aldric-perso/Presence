@@ -71,3 +71,12 @@
 .full {
   width: 100%;
 }
+
+@media (max-width: 768px) {
+  .sm {
+    padding: 11px 16px;
+  }
+  .xs {
+    padding: 10px 14px;
+  }
+}

@@ -1,6 +1,8 @@
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Callout from "../components/ui/Callout";
+import Button from "../components/ui/Button";
+import Avatar from "../components/ui/Avatar";
 import styles from "./settings/Shared.module.css";
 import StudentsAdminTab from "./settings/StudentsAdminTab";
 import ClassesAdminTab from "./settings/ClassesAdminTab";
@@ -19,7 +21,7 @@ const TABS = [
 export default function SettingsPage() {
   const { tab } = useParams();
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { profile, isAdmin, signOut } = useAuth();
 
   if (!tab) return <Navigate to="/parametres/eleves" replace />;
 
@@ -31,6 +33,19 @@ export default function SettingsPage() {
       <p style={{ fontSize: 15, color: "var(--color-ink-soft)", margin: "8px 0 20px" }}>
         Réservé aux administrateurs. Toute modification est horodatée et signée.
       </p>
+
+      <div className="card" style={{ padding: "16px 20px", marginBottom: 24, display: "flex", alignItems: "center", gap: 14 }}>
+        <Avatar name={profile?.displayName || ""} size={38} tone="brand" />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 600 }}>{profile?.displayName || "…"}</div>
+          <div style={{ fontSize: 12, color: "var(--color-ink-soft)" }}>
+            {isAdmin ? "Administrateur" : "Enseignant"}
+          </div>
+        </div>
+        <Button variant="ghost" size="sm" onClick={signOut}>
+          Se déconnecter
+        </Button>
+      </div>
 
       {!isAdmin && (
         <div style={{ marginBottom: 24 }}>
