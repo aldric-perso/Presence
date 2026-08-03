@@ -107,3 +107,11 @@ export async function markStudentDeparted(studentId, date) {
 export async function reactivateStudent(studentId) {
   await updateDoc(doc(db, "students", studentId), { departedAt: null });
 }
+
+export async function updateStudentName(studentId, { firstName, lastName }) {
+  await updateDoc(doc(db, "students", studentId), {
+    firstName: firstName.trim(),
+    lastName: lastName.trim(),
+    fullName: `${firstName.trim()} ${lastName.trim()}`,
+  });
+}

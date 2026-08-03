@@ -1,13 +1,6 @@
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  useStudents,
-  createStudent,
-  findDuplicateStudent,
-  changeStudentClass,
-  markStudentDeparted,
-  reactivateStudent,
-} from "../../lib/students";
+import { useStudents, createStudent, findDuplicateStudent } from "../../lib/students";
 import { useClasses } from "../../lib/classes";
 import { parseStudentsWorkbook, buildImportDiff, exportStudentsWorkbook } from "../../lib/studentImport";
 import { Field, Select, TextInput } from "../../components/ui/Field";
@@ -15,7 +8,10 @@ import Button from "../../components/ui/Button";
 import Badge from "../../components/ui/Badge";
 import { formatDateShort, todayISO } from "../../lib/dates";
 import StudentImportDialog from "./StudentImportDialog";
+import StudentManageDialog from "./StudentManageDialog";
 import styles from "./Shared.module.css";
+
+const ROW_COLUMNS = "1.3fr 1fr 1fr 1fr 170px";
 
 export default function StudentsAdminTab({ isAdmin }) {
   const { data: students } = useStudents();
@@ -34,6 +30,7 @@ export default function StudentsAdminTab({ isAdmin }) {
 
   const classById = new Map(classes.map((c) => [c.id, c]));
   const effectiveClassId = classId || classes[0]?.id || "";
+  const managingStudent = students.find((s) => s.id === managingId) || null;
 
   async function handleAdd() {
     if (!firstName.trim() || !lastName.trim()) return;
@@ -209,7 +206,7 @@ export default function StudentsAdminTab({ isAdmin }) {
       )}
 
       <div className={["card", styles.listCard].join(" ")}>
-        <div className={styles.tableHead} style={{ gridTemplateColumns: "1.3fr 1fr 1fr 1fr auto" }}>
+        <div className={styles.tableHead} style={{ gridTemplateColumns: ROW_COLUMNS }}>
           <span>Élève</span>
           <span>Classe</span>
           <span>Arrivé le</span>
@@ -217,95 +214,44 @@ export default function StudentsAdminTab({ isAdmin }) {
           <span></span>
         </div>
         {students.map((s) => (
-          <StudentRow
-            key={s.id}
-            student={s}
-            classById={classById}
-            classes={classes}
-            isAdmin={isAdmin}
-            expanded={managingId === s.id}
-            onToggle={() => setManagingId(managingId === s.id ? null : s.id)}
-          />
+          <div key={s.id} className={styles.tableRow} style={{ gridTemplateColumns: ROW_COLUMNS }}>
+            <span style={{ fontWeight: 600 }}>{s.fullName}</span>
+            <span style={{ color: "var(--color-ink-soft)" }}>{classById.get(s.classId)?.name || "—"}</span>
+            <span style={{ color: "var(--color-ink-soft)" }}>{s.arrivedAt ? formatDateShort(s.arrivedAt) : "—"}</span>
+            <span>
+              {s.departedAt ? (
+                <Badge tone="red">{formatDateShort(s.departedAt)}</Badge>
+              ) : (
+                <span style={{ color: "var(--color-muted)" }}>—</span>
+              )}
+            </span>
+            <div style={{ display: "flex", gap: 14, alignItems: "center", justifyContent: "flex-end" }}>
+              {isAdmin && (
+                <button
+                  onClick={() => setManagingId(s.id)}
+                  style={{ background: "transparent", border: "none", color: "var(--color-ink)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                >
+                  Gérer
+                </button>
+              )}
+              <Link to={`/eleves?id=${s.id}`} style={{ fontSize: 13, fontWeight: 600 }}>
+                Voir le suivi
+              </Link>
+            </div>
+          </div>
         ))}
         {students.length === 0 && <div className={styles.emptyMsg}>Aucun élève pour le moment.</div>}
       </div>
 
       {importDiff && <StudentImportDialog diff={importDiff} onClose={() => setImportDiff(null)} />}
-    </div>
-  );
-}
 
-function StudentRow({ student: s, classById, classes, isAdmin, expanded, onToggle }) {
-  const [newClassId, setNewClassId] = useState(s.classId);
-  const [changeDate, setChangeDate] = useState(todayISO());
-  const [departDate, setDepartDate] = useState(todayISO());
-
-  return (
-    <div style={{ borderBottom: "1px solid var(--color-line)" }}>
-      <div className={styles.tableRow} style={{ gridTemplateColumns: "1.3fr 1fr 1fr 1fr auto", borderBottom: "none" }}>
-        <span style={{ fontWeight: 600 }}>{s.fullName}</span>
-        <span style={{ color: "var(--color-ink-soft)" }}>{classById.get(s.classId)?.name || "—"}</span>
-        <span style={{ color: "var(--color-ink-soft)" }}>{s.arrivedAt ? formatDateShort(s.arrivedAt) : "—"}</span>
-        <span>
-          {s.departedAt ? <Badge tone="red">{formatDateShort(s.departedAt)}</Badge> : <span style={{ color: "var(--color-muted)" }}>—</span>}
-        </span>
-        <div style={{ display: "flex", gap: 14, alignItems: "center", justifyContent: "flex-end" }}>
-          {isAdmin && (
-            <button
-              onClick={onToggle}
-              style={{ background: "transparent", border: "none", color: "var(--color-ink)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
-            >
-              Gérer
-            </button>
-          )}
-          <Link to={`/eleves?id=${s.id}`} style={{ fontSize: 13, fontWeight: 600 }}>
-            Voir le suivi
-          </Link>
-        </div>
-      </div>
-
-      {expanded && (
-        <div className={[styles.groupBody, "animate-pop"].join(" ")} style={{ padding: "0 22px 18px", borderTop: "none" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
-            <Field label="Changer de classe">
-              <Select value={newClassId} onChange={(e) => setNewClassId(e.target.value)}>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="À partir du">
-              <TextInput type="date" value={changeDate} onChange={(e) => setChangeDate(e.target.value)} />
-            </Field>
-            <Button
-              size="sm"
-              onClick={() =>
-                changeStudentClass(s.id, { classId: newClassId, className: classById.get(newClassId)?.name, date: changeDate })
-              }
-            >
-              Confirmer
-            </Button>
-          </div>
-
-          <div style={{ display: "flex", gap: 10, alignItems: "end", marginTop: 14 }}>
-            {s.departedAt ? (
-              <Button size="sm" variant="ghost" onClick={() => reactivateStudent(s.id)}>
-                Marquer comme de retour
-              </Button>
-            ) : (
-              <>
-                <Field label="Départ le">
-                  <TextInput type="date" value={departDate} onChange={(e) => setDepartDate(e.target.value)} />
-                </Field>
-                <Button size="sm" variant="ghost" onClick={() => markStudentDeparted(s.id, departDate)}>
-                  Marquer comme parti
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
+      {managingStudent && (
+        <StudentManageDialog
+          student={managingStudent}
+          classes={classes}
+          classById={classById}
+          onClose={() => setManagingId(null)}
+        />
       )}
     </div>
   );

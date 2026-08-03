@@ -2,7 +2,7 @@ import { collection, doc, serverTimestamp, writeBatch, arrayUnion } from "fireba
 import { db } from "../firebase";
 import { normalize } from "./ids";
 import { findDuplicateStudent } from "./students";
-import { todayISO, formatDateShort } from "./dates";
+import { todayISO } from "./dates";
 
 const studentsRef = collection(db, "students");
 
@@ -35,6 +35,10 @@ function parseCellDate(value) {
   return null;
 }
 
+function isoToDate(iso) {
+  return iso ? new Date(`${iso}T00:00:00`) : "";
+}
+
 /** Lit un fichier .xlsx et retourne les lignes normalisées (une entrée par élève du fichier). */
 export async function parseStudentsWorkbook(file) {
   const XLSX = await import("xlsx");
@@ -59,7 +63,9 @@ export async function parseStudentsWorkbook(file) {
  * - toCreate : aucun élève existant ne correspond → nouvelle fiche
  * - toReview : un élève existant correspond mais la classe diffère → décision requise
  *   (changement de classe ou doublon à ignorer)
- * - toDepart : élève actif en base, absent du fichier importé → considéré parti
+ * - toUpdate : un élève existant correspond, même classe, mais une date d'arrivée/de départ
+ *   diffère dans le fichier → mise à jour directe (pas ambigu, pas de décision requise)
+ * - toDepart : élève actif en base, absent du fichier importé → considéré parti à la date d'import
  * - errors : ligne dont la classe indiquée ne correspond à aucune classe existante
  */
 export function buildImportDiff({ rows, existingStudents, classes, importDate }) {
@@ -69,6 +75,7 @@ export function buildImportDiff({ rows, existingStudents, classes, importDate })
 
   const toCreate = [];
   const toReview = [];
+  const toUpdate = [];
   const errors = [];
 
   rows.forEach((row, index) => {
@@ -80,44 +87,49 @@ export function buildImportDiff({ rows, existingStudents, classes, importDate })
 
     const existing = findDuplicateStudent(existingStudents, row.firstName, row.lastName);
     if (!existing) {
-      toCreate.push({
-        key: `row-${index}`,
-        row,
-        classId: rowClass.id,
-        className: rowClass.name,
-      });
+      toCreate.push({ key: `row-${index}`, row, classId: rowClass.id, className: rowClass.name });
       return;
     }
 
     matchedIds.add(existing.id);
-    if (existing.classId === rowClass.id && !existing.departedAt) {
-      return; // déjà à jour, rien à faire
-    }
 
-    toReview.push({
-      key: existing.id,
-      row,
-      existingStudent: existing,
-      newClassId: rowClass.id,
-      newClassName: rowClass.name,
-      wasDeparted: !!existing.departedAt,
-    });
+    const classChanged = existing.classId !== rowClass.id;
+    const departedChanged = (row.departedAt || null) !== (existing.departedAt || null);
+    const arrivedChanged = row.arrivedAt && row.arrivedAt !== existing.arrivedAt;
+
+    if (!classChanged && !departedChanged && !arrivedChanged) return; // déjà à jour
+
+    if (classChanged) {
+      toReview.push({
+        key: existing.id,
+        row,
+        existingStudent: existing,
+        newClassId: rowClass.id,
+        newClassName: rowClass.name,
+        wasDeparted: !!existing.departedAt,
+      });
+    } else {
+      const patch = {};
+      if (departedChanged) patch.departedAt = row.departedAt || null;
+      if (arrivedChanged) patch.arrivedAt = row.arrivedAt;
+      toUpdate.push({ key: existing.id, existingStudent: existing, patch });
+    }
   });
 
   const toDepart = activeStudents
     .filter((s) => !matchedIds.has(s.id))
     .map((s) => ({ key: s.id, student: s }));
 
-  return { toCreate, toReview, toDepart, errors, importDate: importDate || todayISO() };
+  return { toCreate, toReview, toUpdate, toDepart, errors, importDate: importDate || todayISO() };
 }
 
 /**
  * Applique le diff après décision de l'admin sur les cas ambigus.
  * `decisions.classChange`: { [studentId]: 'change' | 'ignore' }
  * `decisions.classChangeDate`: { [studentId]: 'YYYY-MM-DD' }
- * `decisions.skipCreate` / `decisions.skipDepart`: Set des clés à exclure
+ * `decisions.skipCreate` / `decisions.skipUpdate` / `decisions.skipDepart`: Set des clés à exclure
  */
-export async function applyImportDiff({ toCreate, toReview, toDepart, importDate }, decisions = {}) {
+export async function applyImportDiff({ toCreate, toReview, toUpdate, toDepart, importDate }, decisions = {}) {
   const ops = [];
 
   for (const item of toCreate) {
@@ -147,11 +159,16 @@ export async function applyImportDiff({ toCreate, toReview, toDepart, importDate
       ref: doc(db, "students", item.existingStudent.id),
       data: {
         classId: item.newClassId,
-        departedAt: null,
+        departedAt: item.row.departedAt || null,
         classHistory: arrayUnion({ classId: item.newClassId, className: item.newClassName, since: date }),
       },
       type: "update",
     });
+  }
+
+  for (const item of toUpdate || []) {
+    if (decisions.skipUpdate?.has(item.key)) continue;
+    ops.push({ ref: doc(db, "students", item.existingStudent.id), data: item.patch, type: "update" });
   }
 
   for (const item of toDepart) {
@@ -183,11 +200,20 @@ export async function exportStudentsWorkbook(students, classes) {
     Prénom: s.firstName,
     Nom: s.lastName,
     Classe: classById.get(s.classId)?.name || "",
-    "Arrivé le": s.arrivedAt ? formatDateShort(s.arrivedAt) : "",
-    "Parti le": s.departedAt ? formatDateShort(s.departedAt) : "",
+    "Arrivé le": isoToDate(s.arrivedAt),
+    "Parti le": isoToDate(s.departedAt),
   }));
-  const sheet = XLSX.utils.json_to_sheet(rows);
+  const sheet = XLSX.utils.json_to_sheet(rows, { cellDates: true });
   sheet["!cols"] = [{ wch: 16 }, { wch: 16 }, { wch: 22 }, { wch: 14 }, { wch: 14 }];
+
+  const range = XLSX.utils.decode_range(sheet["!ref"]);
+  for (let row = range.s.r + 1; row <= range.e.r; row++) {
+    for (const col of [3, 4]) {
+      const cell = sheet[XLSX.utils.encode_cell({ r: row, c: col })];
+      if (cell && cell.t === "d") cell.z = "dd/mm/yyyy";
+    }
+  }
+
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, "Élèves");
   XLSX.writeFile(workbook, `eleves_${todayISO()}.xlsx`);

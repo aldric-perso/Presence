@@ -7,9 +7,10 @@ import { TextInput } from "../../components/ui/Field";
 import styles from "./StudentImportDialog.module.css";
 
 export default function StudentImportDialog({ diff, onClose }) {
-  const { toCreate, toReview, toDepart, errors, importDate } = diff;
+  const { toCreate, toReview, toUpdate, toDepart, errors, importDate } = diff;
 
   const [skipCreate, setSkipCreate] = useState(new Set());
+  const [skipUpdate, setSkipUpdate] = useState(new Set());
   const [skipDepart, setSkipDepart] = useState(new Set());
   const [classChange, setClassChange] = useState(() =>
     Object.fromEntries(toReview.map((r) => [r.existingStudent.id, "change"])),
@@ -27,15 +28,16 @@ export default function StudentImportDialog({ diff, onClose }) {
     setSet(next);
   }
 
-  const nothingToDo = toCreate.length === 0 && toReview.length === 0 && toDepart.length === 0;
+  const nothingToDo =
+    toCreate.length === 0 && toReview.length === 0 && toUpdate.length === 0 && toDepart.length === 0;
 
   async function handleConfirm() {
     setSubmitting(true);
     setError("");
     try {
       await applyImportDiff(
-        { toCreate, toReview, toDepart, importDate },
-        { skipCreate, skipDepart, classChange, classChangeDate },
+        { toCreate, toReview, toUpdate, toDepart, importDate },
+        { skipCreate, skipUpdate, skipDepart, classChange, classChangeDate },
       );
       onClose();
     } catch {
@@ -51,7 +53,8 @@ export default function StudentImportDialog({ diff, onClose }) {
           <div className="eyebrow">Import Excel</div>
           <h2 className={styles.title}>Aperçu avant confirmation</h2>
           <p style={{ fontSize: 14, color: "var(--color-ink-soft)", margin: 0 }}>
-            {toCreate.length} nouveau(x), {toReview.length} à trancher, {toDepart.length} considéré(s) parti(s).
+            {toCreate.length} nouveau(x), {toReview.length} à trancher, {toUpdate.length} mise(s) à
+            jour, {toDepart.length} considéré(s) parti(s).
           </p>
         </div>
 
@@ -138,6 +141,32 @@ export default function StudentImportDialog({ diff, onClose }) {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {toUpdate.length > 0 && (
+            <div className={styles.section}>
+              <div className={styles.sectionTitle}>Dates à mettre à jour ({toUpdate.length})</div>
+              {toUpdate.map((item) => (
+                <label key={item.key} className={styles.row}>
+                  <input
+                    type="checkbox"
+                    checked={!skipUpdate.has(item.key)}
+                    onChange={() => toggle(skipUpdate, setSkipUpdate, item.key)}
+                  />
+                  <div className={styles.rowMain}>
+                    <div style={{ fontWeight: 600 }}>{item.existingStudent.fullName}</div>
+                    <div className={styles.rowMeta}>
+                      {item.patch.arrivedAt && `Arrivée → ${formatDateShort(item.patch.arrivedAt)}`}
+                      {item.patch.arrivedAt && item.patch.departedAt !== undefined && " · "}
+                      {item.patch.departedAt !== undefined &&
+                        (item.patch.departedAt
+                          ? `Départ → ${formatDateShort(item.patch.departedAt)}`
+                          : "Marqué de retour (plus de date de départ)")}
+                    </div>
+                  </div>
+                </label>
+              ))}
             </div>
           )}
 

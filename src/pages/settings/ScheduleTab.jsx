@@ -54,13 +54,13 @@ export default function ScheduleTab({ isAdmin }) {
       )}
 
       <div className={["card", styles.listCard].join(" ")}>
-        <div className={styles.tableHead} style={{ gridTemplateColumns: "1fr 2fr auto" }}>
+        <div className={styles.tableHead} style={{ gridTemplateColumns: "1fr 2fr 80px" }}>
           <span>Créneau</span>
           <span>Intitulé</span>
           <span></span>
         </div>
         {timeSlots.map((slot) => (
-          <div key={slot.id} className={["tabular", styles.tableRow].join(" ")} style={{ gridTemplateColumns: "1fr 2fr auto" }}>
+          <div key={slot.id} className={["tabular", styles.tableRow].join(" ")} style={{ gridTemplateColumns: "1fr 2fr 80px" }}>
             <span style={{ fontWeight: 600 }}>{slot.label}</span>
             <span style={{ color: "var(--color-ink-soft)" }}>{slot.name}</span>
             <span style={{ fontSize: 12, color: "var(--color-muted)" }}>50 min</span>
