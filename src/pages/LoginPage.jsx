@@ -104,8 +104,7 @@ export default function LoginPage() {
           </Button>
 
           <p className={styles.helpText}>
-            Chaque appel est signé par ton identifiant. Il ne peut pas être modifié par un autre
-            enseignant.
+            Si tu n'as pas encore de compte, demande à un admin de t'en créer un.
           </p>
         </form>
       </div>
