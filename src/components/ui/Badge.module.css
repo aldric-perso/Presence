@@ -1,0 +1,26 @@
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+}
+
+.green {
+  color: var(--color-green-dark);
+  background: var(--color-green-bg);
+}
+.amber {
+  color: var(--color-amber-dark);
+  background: var(--color-amber-bg);
+}
+.red {
+  color: var(--color-red-dark);
+  background: var(--color-red-bg);
+}
+.neutral {
+  color: var(--color-ink-soft);
+  background: var(--color-hover);
+}

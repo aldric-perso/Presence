@@ -1,0 +1,46 @@
+:root {
+  --color-bg: #f6f4f0;
+  --color-ink: #1b1d1f;
+  --color-ink-soft: #6e6a63;
+  --color-muted: #8a867e;
+  --color-line: rgba(27, 29, 31, 0.09);
+  --color-line-strong: rgba(27, 29, 31, 0.14);
+  --color-surface: #ffffff;
+
+  --color-dark: #16181a;
+  --color-dark-soft: rgba(246, 244, 240, 0.62);
+  --color-dark-faint: rgba(246, 244, 240, 0.45);
+  --color-dark-line: rgba(246, 244, 240, 0.1);
+
+  --color-green: #2f5d50;
+  --color-green-dark: #23473d;
+  --color-green-soft: #7fb8a4;
+  --color-green-bg: #edf2ef;
+
+  --color-amber: #b07b23;
+  --color-amber-dark: #7a5312;
+  --color-amber-bg: #fdf4e7;
+
+  --color-red: #a8402f;
+  --color-red-dark: #8a3325;
+  --color-red-bg: #fbece9;
+
+  --color-pill-bg: #efebe4;
+  --color-hover: #f1eee8;
+  --color-panel: #faf8f4;
+  --color-disabled-bg: #dcd8d0;
+  --color-disabled-ink: #8a867e;
+
+  --font-serif: "Instrument Serif", Georgia, serif;
+  --font-sans: "Instrument Sans", system-ui, -apple-system, sans-serif;
+
+  --radius-pill: 99px;
+  --radius-lg: 18px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+
+  --shadow-modal: 0 24px 60px rgba(22, 24, 26, 0.3);
+  --shadow-raised: 0 1px 3px rgba(27, 29, 31, 0.1);
+
+  --sidebar-width: 232px;
+}

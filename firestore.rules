@@ -1,0 +1,64 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.role == 'admin';
+    }
+
+    // --- Comptes enseignants / admins ---
+    // Créés et mutés (rôle) uniquement via Cloud Functions (Admin SDK, contourne ces règles).
+    // Seule l'édition des affectations (classes/matières) est autorisée en direct, par un admin.
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow update: if isAdmin() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['classIds', 'subjectIds']);
+      allow create, delete: if false;
+    }
+
+    // --- Classes ---
+    match /classes/{classId} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdmin();
+      allow delete: if false; // archivage via update(archived:true), pas de suppression définitive
+    }
+
+    // --- Matières ---
+    match /subjects/{subjectId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- Élèves ---
+    match /students/{studentId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin();
+      allow update, delete: if false; // pas d'édition/suppression dans l'interface actuelle
+    }
+
+    // --- Créneaux horaires (fixes, gérés via script de seed) ---
+    match /timeSlots/{slotId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // --- Réglages généraux (ex. seuil de présence) ---
+    match /settings/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // --- Appels ---
+    // Toute création/correction passe par les Cloud Functions (submitAttendanceRecord,
+    // correctAttendanceRecord) qui valident, verrouillent et signent le document.
+    match /attendanceRecords/{recordId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+  }
+}

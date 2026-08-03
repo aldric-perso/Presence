@@ -1,0 +1,45 @@
+.field {
+  display: flex;
+  flex-direction: column;
+}
+
+.label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.label.sm {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.required {
+  color: var(--color-red);
+  font-weight: 400;
+}
+
+.input,
+.select {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-surface);
+  font-size: 14px;
+}
+.input:focus,
+.select:focus {
+  outline: 2px solid var(--color-green-soft);
+  outline-offset: 1px;
+}
+.sm.input,
+.sm .input {
+  padding: 11px 13px;
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--color-ink-soft);
+  margin: 0 0 12px;
+}

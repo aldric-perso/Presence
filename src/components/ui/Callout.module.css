@@ -1,0 +1,35 @@
+.callout {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.icon {
+  font-size: 14px;
+}
+
+.warning {
+  background: var(--color-amber-bg);
+  border: 1px solid rgba(176, 123, 35, 0.28);
+  color: var(--color-amber-dark);
+}
+.danger {
+  background: var(--color-red-bg);
+  border: 1px solid rgba(168, 64, 47, 0.28);
+  color: var(--color-red-dark);
+}
+.success {
+  background: var(--color-green-bg);
+  border: 1px solid rgba(47, 93, 80, 0.25);
+  color: var(--color-green-dark);
+  font-weight: 600;
+}
+.neutral {
+  background: var(--color-panel);
+  border: 1px solid var(--color-line);
+  color: var(--color-ink-soft);
+}

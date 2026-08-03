@@ -1,0 +1,121 @@
+.tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--color-line-strong);
+  margin-bottom: 28px;
+  overflow-x: auto;
+}
+.tab {
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  color: var(--color-ink-soft);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+.tab:hover {
+  color: var(--color-ink);
+}
+.tab.active {
+  border-bottom-color: var(--color-dark);
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.formCard {
+  padding: 26px;
+  margin-bottom: 20px;
+}
+.formTitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.formHint {
+  font-size: 13px;
+  color: var(--color-ink-soft);
+  margin: 0 0 18px;
+}
+.formGrid {
+  display: grid;
+  gap: 10px;
+  align-items: end;
+}
+
+.listCard {
+  overflow: hidden;
+}
+.tableHead,
+.tableRow {
+  display: grid;
+  gap: 12px;
+  padding: 13px 22px;
+  align-items: center;
+}
+.tableHead {
+  background: var(--color-panel);
+  border-bottom: 1px solid var(--color-line);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  font-weight: 600;
+}
+.tableRow {
+  border-bottom: 1px solid var(--color-line);
+  font-size: 14px;
+}
+.tableRow:last-child {
+  border-bottom: none;
+}
+
+.cardsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.simpleCard {
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.groupCard {
+  padding: 20px 22px;
+}
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.groupBody {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-line);
+  display: grid;
+  gap: 16px;
+}
+.toggleLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ink-soft);
+  margin-bottom: 8px;
+}
+.chipRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.emptyMsg {
+  padding: 40px 22px;
+  text-align: center;
+  color: var(--color-muted);
+  font-size: 14px;
+}
