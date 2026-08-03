@@ -16,11 +16,19 @@ import {
 import { auth, db } from "../firebase";
 import { useCollection } from "./useCollection";
 import { attendanceRecordId, initialsOf } from "./ids";
-import { todayISO } from "./dates";
+import { todayISO, isoDaysAgo } from "./dates";
 
 const recordsRef = collection(db, "attendanceRecords");
 
 export const STATUS = { PRESENT: "present", LATE: "retard", ABSENT: "absent" };
+
+/** Fenêtre pendant laquelle l'auteur d'un appel peut le corriger/supprimer sans passer par un admin. */
+export const EDIT_WINDOW_DAYS = 7;
+
+/** Un appel dont la date de séance remonte à 7 jours ou moins reste modifiable par son auteur. */
+export function isEditableByAuthor(recordDate) {
+  return recordDate >= isoDaysAgo(EDIT_WINDOW_DAYS);
+}
 
 export function useTodayRecords() {
   const q = useMemo(
@@ -150,8 +158,8 @@ export async function submitAttendanceRecord({ date, classId, subjectId, timeSlo
  * l'intérieur des éléments d'un arrayUnion.
  */
 export async function correctAttendanceRecord({ recordId, entries, reason }) {
-  if (!reason?.trim() || reason.trim().length <= 4) {
-    throw new Error("Le motif de correction doit être détaillé.");
+  if (!reason?.trim()) {
+    throw new Error("Un motif de correction est requis.");
   }
   validateEntries(entries);
 
@@ -171,6 +179,30 @@ export async function correctAttendanceRecord({ recordId, entries, reason }) {
 }
 
 /**
+ * Supprime "en douceur" un appel : le document n'est jamais réellement effacé (les règles
+ * Firestore interdisent tout `delete`), il est marqué `deleted` et garde un motif tracé, comme une
+ * correction. Il reste donc visible dans le registre — avec la pastille « Supprimé » — mais ses
+ * entrées sont exclues des statistiques de présence (cf. computeStudentStats).
+ */
+export async function deleteAttendanceRecord({ recordId, reason }) {
+  if (!reason?.trim() || reason.trim().length <= 4) {
+    throw new Error("Le motif de suppression doit être détaillé.");
+  }
+
+  const authorSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
+
+  await updateDoc(doc(db, "attendanceRecords", recordId), {
+    deleted: true,
+    deletedAt: new Date().toISOString(),
+    deletedBy: auth.currentUser.uid,
+    deletedByName: authorSnap.data().displayName,
+    deletedReason: reason.trim(),
+  });
+
+  return { id: recordId };
+}
+
+/**
  * Calcule, pour chaque élève, les minutes dues/vues, le taux de présence global et par matière,
  * ainsi que l'historique des absences/retards — à partir des appels verrouillés déjà enregistrés.
  */
@@ -182,7 +214,7 @@ export function computeStudentStats({ students, records, seuil, reasonsLookup = 
     ]),
   );
 
-  const sortedRecords = [...records].sort((a, b) => (a.date < b.date ? 1 : -1));
+  const sortedRecords = records.filter((r) => !r.deleted).sort((a, b) => (a.date < b.date ? 1 : -1));
 
   for (const record of sortedRecords) {
     const sessionMinutes = record.sessionMinutes || 50;

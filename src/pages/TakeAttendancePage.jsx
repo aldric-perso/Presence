@@ -7,7 +7,7 @@ import { useStudentsByClass } from "../lib/students";
 import { useSettings } from "../lib/settings";
 import { submitAttendanceRecord, STATUS } from "../lib/attendance";
 import { formatDateLabel } from "../lib/dates";
-import { SegmentedControl, Pill } from "../components/ui/Pill";
+import { Pill } from "../components/ui/Pill";
 import Avatar from "../components/ui/Avatar";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
@@ -35,7 +35,6 @@ export default function TakeAttendancePage() {
   const subject = subjects.find((s) => s.id === subjectId);
   const timeSlot = timeSlots.find((s) => s.id === timeSlotId);
 
-  const [variant, setVariant] = useState("liste");
   const [roll, setRoll] = useState({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -78,13 +77,6 @@ export default function TakeAttendancePage() {
 
   function patchEntry(studentId, patch) {
     setRoll((prev) => ({ ...prev, [studentId]: { ...prev[studentId], ...patch } }));
-  }
-
-  function cycleStatus(studentId) {
-    const cur = roll[studentId]?.status || STATUS.PRESENT;
-    const next =
-      cur === STATUS.PRESENT ? STATUS.LATE : cur === STATUS.LATE ? STATUS.ABSENT : STATUS.PRESENT;
-    setStatus(studentId, next);
   }
 
   const entries = students.map((s) => ({ studentId: s.id, ...(roll[s.id] || defaultEntry()) }));
@@ -165,14 +157,6 @@ export default function TakeAttendancePage() {
               <div className={styles.countLabel}>absents</div>
             </div>
           </div>
-          <SegmentedControl
-            value={variant}
-            onChange={setVariant}
-            options={[
-              { value: "liste", label: "Liste" },
-              { value: "cartes", label: "Cartes" },
-            ]}
-          />
         </div>
       </div>
 
@@ -190,33 +174,18 @@ export default function TakeAttendancePage() {
           </div>
         )}
 
-        {variant === "liste" ? (
-          <div className="card">
-            {students.map((s) => (
-              <RollRow
-                key={s.id}
-                student={s}
-                entry={roll[s.id] || defaultEntry()}
-                settings={settings}
-                onSetStatus={(status) => setStatus(s.id, status)}
-                onPatch={(patch) => patchEntry(s.id, patch)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className={styles.cardsGrid}>
-            {students.map((s) => (
-              <RollCard
-                key={s.id}
-                student={s}
-                entry={roll[s.id] || defaultEntry()}
-                settings={settings}
-                onCycle={() => cycleStatus(s.id)}
-                onPatch={(patch) => patchEntry(s.id, patch)}
-              />
-            ))}
-          </div>
-        )}
+        <div className="card">
+          {students.map((s) => (
+            <RollRow
+              key={s.id}
+              student={s}
+              entry={roll[s.id] || defaultEntry()}
+              settings={settings}
+              onSetStatus={(status) => setStatus(s.id, status)}
+              onPatch={(patch) => patchEntry(s.id, patch)}
+            />
+          ))}
+        </div>
       </div>
 
       <div className={styles.footer}>
@@ -310,43 +279,6 @@ function RollRow({ student, entry, onSetStatus, onPatch, settings }) {
           <div className={styles.detailBox}>
             <ReasonPicker entry={entry} onPatch={onPatch} settings={settings} />
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RollCard({ student, entry, onCycle, onPatch, settings }) {
-  const toneClass =
-    entry.status === STATUS.PRESENT ? styles.present : entry.status === STATUS.LATE ? styles.late : styles.absent;
-  const summary =
-    entry.status === STATUS.PRESENT
-      ? "Présent · 50 min"
-      : entry.status === STATUS.LATE
-        ? `${entry.minutesMissed} min manquées · ${entry.reason || "motif requis"}`
-        : `50 min · ${entry.reason || "motif requis"}`;
-
-  return (
-    <div>
-      <button type="button" className={[styles.studentCard, toneClass].join(" ")} onClick={onCycle}>
-        <div className={styles.cardName}>{student.fullName}</div>
-        <div
-          className={styles.cardSummary}
-          style={{
-            color:
-              entry.status === STATUS.PRESENT
-                ? "var(--color-green)"
-                : entry.status === STATUS.LATE
-                  ? "var(--color-amber-dark)"
-                  : "var(--color-red-dark)",
-          }}
-        >
-          {summary}
-        </div>
-      </button>
-      {entry.status !== STATUS.PRESENT && (
-        <div className={[styles.cardDetail, "animate-pop"].join(" ")}>
-          <ReasonPicker entry={entry} onPatch={onPatch} settings={settings} />
         </div>
       )}
     </div>

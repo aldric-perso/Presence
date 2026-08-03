@@ -24,6 +24,22 @@ service cloud.firestore {
       return hasProfile() && myProfile().role == 'admin';
     }
 
+    // --- Fenêtre de modification d'un appel (correction ou suppression douce) ---
+    // Passé ce délai depuis la date de la séance (pas la date de saisie), seul un admin peut
+    // encore corriger ou supprimer l'appel ; l'auteur seul ne le peut plus.
+    function recordSessionDate(data) {
+      let parts = data.date.split('-');
+      return timestamp.date(int(parts[0]), int(parts[1]), int(parts[2]));
+    }
+
+    function withinEditWindow(data) {
+      return request.time < recordSessionDate(data) + duration.value(7, 'd');
+    }
+
+    function canModifyRecord(data) {
+      return isAdmin() || (data.authorId == request.auth.uid && withinEditWindow(data));
+    }
+
     // --- Comptes enseignants / admins ---
     // Création : un admin authentifié crée le profil juste après avoir créé le compte Auth
     // (via une instance Firebase secondaire côté client, cf. src/lib/users.js). L'auteur de
@@ -84,9 +100,23 @@ service cloud.firestore {
         request.resource.data.authorName == myProfile().displayName &&
         request.resource.data.locked == true &&
         request.resource.data.corrections.size() == 0;
-      allow update: if (isAdmin() || resource.data.authorId == request.auth.uid) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['entries', 'corrections']) &&
-        request.resource.data.corrections.size() == resource.data.corrections.size() + 1;
+      // Deux formes de modification, toutes deux réservées à l'auteur (dans les 7 jours suivant la
+      // séance) ou à un admin (sans limite de temps), et jamais sur un appel déjà supprimé :
+      // - correction : entries + une nouvelle correction tracée ;
+      // - suppression douce : le document n'est jamais réellement effacé (cf. allow delete ci-
+      //   dessous), il est marqué deleted=true avec son propre motif tracé, pour rester visible
+      //   dans le registre.
+      allow update: if resource.data.deleted != true && canModifyRecord(resource.data) && (
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['entries', 'corrections']) &&
+          request.resource.data.corrections.size() == resource.data.corrections.size() + 1
+        ) ||
+        (
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['deleted', 'deletedAt', 'deletedBy', 'deletedByName', 'deletedReason']) &&
+          request.resource.data.deleted == true
+        )
+      );
       allow delete: if false;
     }
   }

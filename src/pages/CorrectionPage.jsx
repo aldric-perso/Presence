@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useStudentsByIds } from "../lib/students";
-import { useAttendanceRecord, correctAttendanceRecord, STATUS } from "../lib/attendance";
+import { useAttendanceRecord, correctAttendanceRecord, isEditableByAuthor, STATUS } from "../lib/attendance";
 import { useSettings } from "../lib/settings";
 import { formatDateShort, formatTimestamp } from "../lib/dates";
 import { Pill } from "../components/ui/Pill";
@@ -60,12 +60,22 @@ export default function CorrectionPage() {
 
   if (loading || studentsLoading) return <div className="page">Chargement…</div>;
   if (!record) return <div className="page">Appel introuvable.</div>;
+  if (record.deleted) {
+    return <div className="page">Cet appel a été supprimé ; il ne peut plus être corrigé.</div>;
+  }
   if (!isAdmin && record.authorId !== user.uid) {
     return <div className="page">Tu ne peux corriger que tes propres appels.</div>;
   }
+  if (!isAdmin && !isEditableByAuthor(record.date)) {
+    return (
+      <div className="page">
+        Cet appel date de plus de 7 jours : contacte un administrateur pour le corriger.
+      </div>
+    );
+  }
 
   const entries = students.map((s) => ({ studentId: s.id, ...(roll[s.id] || { status: STATUS.PRESENT }) }));
-  const canSave = reason.trim().length > 4;
+  const canSave = reason.trim().length > 0;
 
   async function handleSave() {
     setSubmitting(true);

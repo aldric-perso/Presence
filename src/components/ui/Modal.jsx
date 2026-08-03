@@ -11,6 +11,7 @@ export default function Modal({
   onConfirm,
   onCancel,
   danger = false,
+  confirmDisabled = false,
 }) {
   return (
     <div className={styles.backdrop} role="dialog" aria-modal="true">
@@ -24,7 +25,7 @@ export default function Modal({
             {cancelLabel}
           </Button>
           {onConfirm && (
-            <Button variant={danger ? "danger" : "primary"} onClick={onConfirm}>
+            <Button variant={danger ? "danger" : "primary"} onClick={onConfirm} disabled={confirmDisabled}>
               {confirmLabel}
             </Button>
           )}
