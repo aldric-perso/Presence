@@ -3,6 +3,7 @@ import {
   addDoc,
   arrayUnion,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   orderBy,
@@ -114,4 +115,14 @@ export async function updateStudentName(studentId, { firstName, lastName }) {
     lastName: lastName.trim(),
     fullName: `${firstName.trim()} ${lastName.trim()}`,
   });
+}
+
+/**
+ * Suppression définitive — réservée à la correction d'une erreur de saisie (ex. doublon créé par
+ * mégarde). Si l'élève a déjà été noté dans un appel, son nom disparaîtra de ces appels passés et
+ * de ses statistiques de présence : pour un élève qui a réellement quitté l'établissement, préférer
+ * markStudentDeparted.
+ */
+export async function deleteStudent(studentId) {
+  await deleteDoc(doc(db, "students", studentId));
 }

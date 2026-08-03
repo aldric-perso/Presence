@@ -226,14 +226,12 @@ export default function StudentsAdminTab({ isAdmin }) {
               )}
             </span>
             <div style={{ display: "flex", gap: 14, alignItems: "center", justifyContent: "flex-end" }}>
-              {isAdmin && (
-                <button
-                  onClick={() => setManagingId(s.id)}
-                  style={{ background: "transparent", border: "none", color: "var(--color-ink)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
-                >
-                  Gérer
-                </button>
-              )}
+              <button
+                onClick={() => setManagingId(s.id)}
+                style={{ background: "transparent", border: "none", color: "var(--color-ink)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+              >
+                Gérer
+              </button>
               <Link to={`/eleves?id=${s.id}`} style={{ fontSize: 13, fontWeight: 600 }}>
                 Voir le suivi
               </Link>
@@ -250,6 +248,7 @@ export default function StudentsAdminTab({ isAdmin }) {
           student={managingStudent}
           classes={classes}
           classById={classById}
+          isAdmin={isAdmin}
           onClose={() => setManagingId(null)}
         />
       )}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   changeStudentClass,
+  deleteStudent,
   markStudentDeparted,
   reactivateStudent,
   updateStudentName,
@@ -8,10 +9,11 @@ import {
 import { todayISO } from "../../lib/dates";
 import Button from "../../components/ui/Button";
 import Badge from "../../components/ui/Badge";
+import Callout from "../../components/ui/Callout";
 import { Field, Select, TextInput } from "../../components/ui/Field";
 import styles from "./StudentImportDialog.module.css";
 
-export default function StudentManageDialog({ student, classes, classById, onClose }) {
+export default function StudentManageDialog({ student, classes, classById, isAdmin, onClose }) {
   const [firstName, setFirstName] = useState(student.firstName);
   const [lastName, setLastName] = useState(student.lastName);
   const [savingName, setSavingName] = useState(false);
@@ -22,6 +24,9 @@ export default function StudentManageDialog({ student, classes, classById, onClo
 
   const [departDate, setDepartDate] = useState(todayISO());
   const [savingDepart, setSavingDepart] = useState(false);
+
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function handleSaveName() {
     if (!firstName.trim() || !lastName.trim()) return;
@@ -52,6 +57,12 @@ export default function StudentManageDialog({ student, classes, classById, onClo
     setSavingDepart(false);
   }
 
+  async function handleDelete() {
+    setDeleting(true);
+    await deleteStudent(student.id);
+    onClose();
+  }
+
   return (
     <div className={styles.backdrop}>
       <div className={styles.dialog} style={{ maxWidth: 560 }}>
@@ -70,58 +81,101 @@ export default function StudentManageDialog({ student, classes, classById, onClo
         </div>
 
         <div className={styles.body}>
-          <div className={styles.section}>
-            <div className={styles.sectionTitle}>Renommer</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
-              <Field label="Prénom">
-                <TextInput value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-              </Field>
-              <Field label="Nom">
-                <TextInput value={lastName} onChange={(e) => setLastName(e.target.value)} />
-              </Field>
-              <Button size="sm" onClick={handleSaveName} disabled={savingName}>
-                Enregistrer
-              </Button>
-            </div>
-          </div>
+          {isAdmin && (
+            <>
+              <div className={styles.section}>
+                <div className={styles.sectionTitle}>Renommer</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
+                  <Field label="Prénom">
+                    <TextInput value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                  </Field>
+                  <Field label="Nom">
+                    <TextInput value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                  </Field>
+                  <Button size="sm" onClick={handleSaveName} disabled={savingName}>
+                    Enregistrer
+                  </Button>
+                </div>
+              </div>
+
+              <div className={styles.section}>
+                <div className={styles.sectionTitle}>Changer de classe</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
+                  <Field label="Nouvelle classe">
+                    <Select value={newClassId} onChange={(e) => setNewClassId(e.target.value)}>
+                      {classes.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="À partir du">
+                    <TextInput type="date" value={changeDate} onChange={(e) => setChangeDate(e.target.value)} />
+                  </Field>
+                  <Button size="sm" onClick={handleChangeClass} disabled={savingClass}>
+                    Confirmer
+                  </Button>
+                </div>
+              </div>
+
+              <div className={styles.section}>
+                <div className={styles.sectionTitle}>Présence à l'établissement</div>
+                {student.departedAt ? (
+                  <Button size="sm" variant="ghost" onClick={handleReactivate} disabled={savingDepart}>
+                    Marquer comme de retour
+                  </Button>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "end" }}>
+                    <Field label="Départ le">
+                      <TextInput type="date" value={departDate} onChange={(e) => setDepartDate(e.target.value)} />
+                    </Field>
+                    <Button size="sm" variant="ghost" onClick={handleDepart} disabled={savingDepart}>
+                      Marquer comme parti
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           <div className={styles.section}>
-            <div className={styles.sectionTitle}>Changer de classe</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
-              <Field label="Nouvelle classe">
-                <Select value={newClassId} onChange={(e) => setNewClassId(e.target.value)}>
-                  {classes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="À partir du">
-                <TextInput type="date" value={changeDate} onChange={(e) => setChangeDate(e.target.value)} />
-              </Field>
-              <Button size="sm" onClick={handleChangeClass} disabled={savingClass}>
-                Confirmer
-              </Button>
-            </div>
-          </div>
+            <div className={styles.sectionTitle}>Zone dangereuse</div>
+            <p style={{ fontSize: 13, color: "var(--color-ink-soft)", margin: "0 0 12px" }}>
+              Supprime définitivement cette fiche élève — réservé à la correction d'une erreur de
+              saisie (ex. doublon créé par mégarde). Pour un élève qui a réellement quitté
+              l'établissement, utilise plutôt « Marquer comme parti » ci-dessus : la suppression
+              retire aussi son nom des appels déjà enregistrés.
+            </p>
 
-          <div className={styles.section}>
-            <div className={styles.sectionTitle}>Présence à l'établissement</div>
-            {student.departedAt ? (
-              <Button size="sm" variant="ghost" onClick={handleReactivate} disabled={savingDepart}>
-                Marquer comme de retour
-              </Button>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "end" }}>
-                <Field label="Départ le">
-                  <TextInput type="date" value={departDate} onChange={(e) => setDepartDate(e.target.value)} />
-                </Field>
-                <Button size="sm" variant="ghost" onClick={handleDepart} disabled={savingDepart}>
-                  Marquer comme parti
-                </Button>
+            {confirmingDelete && (
+              <div style={{ marginBottom: 12 }}>
+                <Callout tone="danger">Cette action est irréversible. Confirmer la suppression ?</Callout>
               </div>
             )}
+
+            <div style={{ display: "flex", gap: 10 }}>
+              {confirmingDelete ? (
+                <>
+                  <Button variant="ghost" size="sm" onClick={() => setConfirmingDelete(false)} disabled={deleting}>
+                    Annuler
+                  </Button>
+                  <Button variant="danger" size="sm" onClick={handleDelete} disabled={deleting}>
+                    {deleting ? "Suppression…" : "Confirmer la suppression définitive"}
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => setConfirmingDelete(true)}
+                  disabled={!isAdmin}
+                  title={isAdmin ? undefined : "Demande à un administrateur de supprimer cet élève."}
+                >
+                  Supprimer définitivement
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
