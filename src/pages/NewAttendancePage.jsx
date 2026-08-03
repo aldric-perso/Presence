@@ -14,14 +14,14 @@ import Modal from "../components/ui/Modal";
 
 export default function NewAttendancePage() {
   const navigate = useNavigate();
-  const { profile, isAdmin } = useAuth();
+  const { profile } = useAuth();
   const { data: classes } = useClasses();
   const { data: allSubjects } = useSubjects();
   const { data: timeSlots } = useTimeSlots();
 
   const subjects = useMemo(
-    () => (isAdmin ? allSubjects : allSubjects.filter((s) => (profile?.subjectIds || []).includes(s.id))),
-    [allSubjects, isAdmin, profile],
+    () => allSubjects.filter((s) => (profile?.subjectIds || []).includes(s.id)),
+    [allSubjects, profile],
   );
 
   const [date, setDate] = useState(todayISO());
