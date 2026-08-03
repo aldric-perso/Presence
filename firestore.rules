@@ -106,7 +106,7 @@ service cloud.firestore {
       // - suppression douce : le document n'est jamais réellement effacé (cf. allow delete ci-
       //   dessous), il est marqué deleted=true avec son propre motif tracé, pour rester visible
       //   dans le registre.
-      allow update: if resource.data.deleted != true && canModifyRecord(resource.data) && (
+      allow update: if resource.data.get('deleted', false) != true && canModifyRecord(resource.data) && (
         (
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['entries', 'corrections']) &&
           request.resource.data.corrections.size() == resource.data.corrections.size() + 1
@@ -114,7 +114,7 @@ service cloud.firestore {
         (
           request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['deleted', 'deletedAt', 'deletedBy', 'deletedByName', 'deletedReason']) &&
-          request.resource.data.deleted == true
+          request.resource.data.get('deleted', false) == true
         )
       );
       allow delete: if false;
