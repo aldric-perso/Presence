@@ -46,6 +46,10 @@
   align-items: end;
 }
 
+.searchRow {
+  margin-bottom: 14px;
+}
+
 .listCard {
   overflow: hidden;
 }

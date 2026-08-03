@@ -5,9 +5,11 @@ import { useClasses } from "../lib/classes";
 import { useAllRecords, computeStudentStats, exportStudentsCsv } from "../lib/attendance";
 import { useSettings, buildReasonsLookup } from "../lib/settings";
 import { formatDateShort } from "../lib/dates";
+import { normalize } from "../lib/ids";
 import { SegmentedControl } from "../components/ui/Pill";
 import Button from "../components/ui/Button";
 import Badge from "../components/ui/Badge";
+import { TextInput } from "../components/ui/Field";
 import ProgressBar from "../components/ui/ProgressBar";
 import Ring from "../components/ui/Ring";
 import styles from "./StudentsPage.module.css";
@@ -21,6 +23,7 @@ export default function StudentsPage() {
 
   const [selectedId, setSelectedId] = useState(() => params.get("id"));
   const [view, setView] = useState("fiche");
+  const [search, setSearch] = useState("");
 
   const classById = useMemo(() => new Map(classes.map((c) => [c.id, c])), [classes]);
 
@@ -34,6 +37,12 @@ export default function StudentsPage() {
       reasonsLookup,
     }).sort((a, b) => a.pct - b.pct);
   }, [students, classById, records, settings]);
+
+  const filteredStats = useMemo(() => {
+    const q = normalize(search.trim());
+    if (!q) return stats;
+    return stats.filter((s) => normalize(s.fullName).includes(q));
+  }, [stats, search]);
 
   const selected = stats.find((s) => s.id === selectedId) || stats[0];
   const loading = studentsLoading || recordsLoading;
@@ -60,9 +69,16 @@ export default function StudentsPage() {
       ) : (
         <div className={styles.layout}>
           <div className={["card", styles.listPanel].join(" ")}>
-            <div className={styles.listHeader}>{stats.length} élèves · triés par présence</div>
+            <div className={styles.searchBox}>
+              <TextInput
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Rechercher un élève…"
+              />
+            </div>
+            <div className={styles.listHeader}>{filteredStats.length} élèves · triés par présence</div>
             <div className={styles.listScroll}>
-              {stats.map((s) => (
+              {filteredStats.map((s) => (
                 <button
                   key={s.id}
                   className={[styles.listItem, s.id === selected?.id ? styles.selected : ""].join(" ")}
