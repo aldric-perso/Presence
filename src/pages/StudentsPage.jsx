@@ -66,7 +66,10 @@ export default function StudentsPage() {
                 >
                   <div style={{ flex: 1 }}>
                     <div className={styles.listItemName}>{s.fullName}</div>
-                    <div className={styles.listItemMeta}>{s.className}</div>
+                    <div className={styles.listItemMeta}>
+                      {s.className}
+                      {s.departedAt && " · parti"}
+                    </div>
                   </div>
                   <div className={["tabular", styles.listItemPct].join(" ")}>{s.pct}%</div>
                 </button>

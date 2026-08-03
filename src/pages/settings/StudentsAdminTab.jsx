@@ -1,10 +1,20 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { useStudents, createStudent, findDuplicateStudent } from "../../lib/students";
+import {
+  useStudents,
+  createStudent,
+  findDuplicateStudent,
+  changeStudentClass,
+  markStudentDeparted,
+  reactivateStudent,
+} from "../../lib/students";
 import { useClasses } from "../../lib/classes";
+import { parseStudentsWorkbook, buildImportDiff, exportStudentsWorkbook } from "../../lib/studentImport";
 import { Field, Select, TextInput } from "../../components/ui/Field";
 import Button from "../../components/ui/Button";
-import { formatDateShort } from "../../lib/dates";
+import Badge from "../../components/ui/Badge";
+import { formatDateShort, todayISO } from "../../lib/dates";
+import StudentImportDialog from "./StudentImportDialog";
 import styles from "./Shared.module.css";
 
 export default function StudentsAdminTab({ isAdmin }) {
@@ -14,8 +24,13 @@ export default function StudentsAdminTab({ isAdmin }) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [classId, setClassId] = useState(classes[0]?.id || "");
+  const [arrivedAt, setArrivedAt] = useState(todayISO());
   const [dupe, setDupe] = useState(null);
   const [message, setMessage] = useState("");
+  const [managingId, setManagingId] = useState(null);
+  const [importDiff, setImportDiff] = useState(null);
+  const [importError, setImportError] = useState("");
+  const fileInputRef = useRef(null);
 
   const classById = new Map(classes.map((c) => [c.id, c]));
   const effectiveClassId = classId || classes[0]?.id || "";
@@ -27,10 +42,17 @@ export default function StudentsAdminTab({ isAdmin }) {
       setDupe(found);
       return;
     }
-    await createStudent({ firstName, lastName, classId: effectiveClassId });
+    await createStudent({
+      firstName,
+      lastName,
+      classId: effectiveClassId,
+      className: classById.get(effectiveClassId)?.name,
+      arrivedAt,
+    });
     setMessage(`${firstName.trim()} ${lastName.trim()} a été ajouté·e à ${classById.get(effectiveClassId)?.name || ""}.`);
     setFirstName("");
     setLastName("");
+    setArrivedAt(todayISO());
     setDupe(null);
   }
 
@@ -45,6 +67,24 @@ export default function StudentsAdminTab({ isAdmin }) {
     );
   }
 
+  async function handleFileSelected(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setImportError("");
+    try {
+      const rows = await parseStudentsWorkbook(file);
+      if (rows.length === 0) {
+        setImportError("Aucune ligne exploitable trouvée dans ce fichier.");
+        return;
+      }
+      const diff = buildImportDiff({ rows, existingStudents: students, classes, importDate: todayISO() });
+      setImportDiff(diff);
+    } catch {
+      setImportError("Impossible de lire ce fichier. Vérifie qu'il s'agit bien d'un .xlsx.");
+    }
+  }
+
   return (
     <div>
       {isAdmin && (
@@ -53,7 +93,7 @@ export default function StudentsAdminTab({ isAdmin }) {
           <p className={styles.formHint}>
             La saisie est comparée aux élèves existants en ignorant accents, tirets, espaces et casse.
           </p>
-          <div className={styles.formGrid} style={{ gridTemplateColumns: "1fr 1fr 1.2fr auto" }}>
+          <div className={styles.formGrid} style={{ gridTemplateColumns: "1fr 1fr 1.2fr 0.9fr auto" }}>
             <Field label="Prénom">
               <TextInput value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Léa" />
             </Field>
@@ -68,6 +108,9 @@ export default function StudentsAdminTab({ isAdmin }) {
                   </option>
                 ))}
               </Select>
+            </Field>
+            <Field label="Arrivée le">
+              <TextInput type="date" value={arrivedAt} onChange={(e) => setArrivedAt(e.target.value)} />
             </Field>
             <Button onClick={handleAdd}>Ajouter</Button>
           </div>
@@ -113,7 +156,13 @@ export default function StudentsAdminTab({ isAdmin }) {
                 <Button
                   variant="ghost"
                   onClick={async () => {
-                    await createStudent({ firstName, lastName, classId: effectiveClassId });
+                    await createStudent({
+                      firstName,
+                      lastName,
+                      classId: effectiveClassId,
+                      className: classById.get(effectiveClassId)?.name,
+                      arrivedAt,
+                    });
                     dismissDupe(false);
                   }}
                 >
@@ -130,27 +179,134 @@ export default function StudentsAdminTab({ isAdmin }) {
         </div>
       )}
 
+      {isAdmin && (
+        <div className={["card", styles.formCard].join(" ")} style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ flex: 1 }}>
+            <div className={styles.formTitle}>Import / export Excel</div>
+            <p className={styles.formHint} style={{ margin: 0 }}>
+              Le fichier attend les colonnes Prénom, Nom, Classe, Arrivé le, Parti le. Les nouveaux
+              noms sont ajoutés, les changements de classe ambigus te sont demandés, et tout élève
+              absent du fichier est considéré parti à la date de l'import.
+            </p>
+            {importError && (
+              <p style={{ marginTop: 10, fontSize: 13, color: "var(--color-red)" }}>{importError}</p>
+            )}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx"
+            style={{ display: "none" }}
+            onChange={handleFileSelected}
+          />
+          <Button variant="ghost" onClick={() => fileInputRef.current?.click()}>
+            Importer un fichier Excel
+          </Button>
+          <Button variant="ghost" onClick={() => exportStudentsWorkbook(students, classes)} disabled={!students.length}>
+            Exporter en Excel
+          </Button>
+        </div>
+      )}
+
       <div className={["card", styles.listCard].join(" ")}>
-        <div className={styles.tableHead} style={{ gridTemplateColumns: "1.4fr 1fr 1fr auto" }}>
+        <div className={styles.tableHead} style={{ gridTemplateColumns: "1.3fr 1fr 1fr 1fr auto" }}>
           <span>Élève</span>
           <span>Classe</span>
-          <span>Ajouté le</span>
+          <span>Arrivé le</span>
+          <span>Parti le</span>
           <span></span>
         </div>
         {students.map((s) => (
-          <div key={s.id} className={styles.tableRow} style={{ gridTemplateColumns: "1.4fr 1fr 1fr auto" }}>
-            <span style={{ fontWeight: 600 }}>{s.fullName}</span>
-            <span style={{ color: "var(--color-ink-soft)" }}>{classById.get(s.classId)?.name || "—"}</span>
-            <span style={{ color: "var(--color-ink-soft)" }}>
-              {s.createdAt ? formatDateShort(s.createdAt.toDate().toISOString().slice(0, 10)) : "—"}
-            </span>
-            <Link to={`/eleves?id=${s.id}`} style={{ fontSize: 13, fontWeight: 600 }}>
-              Voir le suivi
-            </Link>
-          </div>
+          <StudentRow
+            key={s.id}
+            student={s}
+            classById={classById}
+            classes={classes}
+            isAdmin={isAdmin}
+            expanded={managingId === s.id}
+            onToggle={() => setManagingId(managingId === s.id ? null : s.id)}
+          />
         ))}
         {students.length === 0 && <div className={styles.emptyMsg}>Aucun élève pour le moment.</div>}
       </div>
+
+      {importDiff && <StudentImportDialog diff={importDiff} onClose={() => setImportDiff(null)} />}
+    </div>
+  );
+}
+
+function StudentRow({ student: s, classById, classes, isAdmin, expanded, onToggle }) {
+  const [newClassId, setNewClassId] = useState(s.classId);
+  const [changeDate, setChangeDate] = useState(todayISO());
+  const [departDate, setDepartDate] = useState(todayISO());
+
+  return (
+    <div style={{ borderBottom: "1px solid var(--color-line)" }}>
+      <div className={styles.tableRow} style={{ gridTemplateColumns: "1.3fr 1fr 1fr 1fr auto", borderBottom: "none" }}>
+        <span style={{ fontWeight: 600 }}>{s.fullName}</span>
+        <span style={{ color: "var(--color-ink-soft)" }}>{classById.get(s.classId)?.name || "—"}</span>
+        <span style={{ color: "var(--color-ink-soft)" }}>{s.arrivedAt ? formatDateShort(s.arrivedAt) : "—"}</span>
+        <span>
+          {s.departedAt ? <Badge tone="red">{formatDateShort(s.departedAt)}</Badge> : <span style={{ color: "var(--color-muted)" }}>—</span>}
+        </span>
+        <div style={{ display: "flex", gap: 14, alignItems: "center", justifyContent: "flex-end" }}>
+          {isAdmin && (
+            <button
+              onClick={onToggle}
+              style={{ background: "transparent", border: "none", color: "var(--color-ink)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+            >
+              Gérer
+            </button>
+          )}
+          <Link to={`/eleves?id=${s.id}`} style={{ fontSize: 13, fontWeight: 600 }}>
+            Voir le suivi
+          </Link>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className={[styles.groupBody, "animate-pop"].join(" ")} style={{ padding: "0 22px 18px", borderTop: "none" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
+            <Field label="Changer de classe">
+              <Select value={newClassId} onChange={(e) => setNewClassId(e.target.value)}>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="À partir du">
+              <TextInput type="date" value={changeDate} onChange={(e) => setChangeDate(e.target.value)} />
+            </Field>
+            <Button
+              size="sm"
+              onClick={() =>
+                changeStudentClass(s.id, { classId: newClassId, className: classById.get(newClassId)?.name, date: changeDate })
+              }
+            >
+              Confirmer
+            </Button>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, alignItems: "end", marginTop: 14 }}>
+            {s.departedAt ? (
+              <Button size="sm" variant="ghost" onClick={() => reactivateStudent(s.id)}>
+                Marquer comme de retour
+              </Button>
+            ) : (
+              <>
+                <Field label="Départ le">
+                  <TextInput type="date" value={departDate} onChange={(e) => setDepartDate(e.target.value)} />
+                </Field>
+                <Button size="sm" variant="ghost" onClick={() => markStudentDeparted(s.id, departDate)}>
+                  Marquer comme parti
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

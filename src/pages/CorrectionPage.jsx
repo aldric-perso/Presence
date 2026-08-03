@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useStudentsByClass } from "../lib/students";
+import { useStudentsByIds } from "../lib/students";
 import {
   useAttendanceRecord,
   correctAttendanceRecord,
@@ -21,7 +21,8 @@ export default function CorrectionPage() {
   const { recordId } = useParams();
   const navigate = useNavigate();
   const { record, loading } = useAttendanceRecord(recordId);
-  const { data: students } = useStudentsByClass(record?.classId);
+  const studentIds = useMemo(() => (record?.entries || []).map((e) => e.studentId), [record]);
+  const { data: students, loading: studentsLoading } = useStudentsByIds(studentIds);
 
   const [roll, setRoll] = useState({});
   const [reason, setReason] = useState("");
@@ -60,7 +61,7 @@ export default function CorrectionPage() {
     setRoll((prev) => ({ ...prev, [studentId]: { ...prev[studentId], ...patch } }));
   }
 
-  if (loading) return <div className="page">Chargement…</div>;
+  if (loading || studentsLoading) return <div className="page">Chargement…</div>;
   if (!record) return <div className="page">Appel introuvable.</div>;
 
   const entries = students.map((s) => ({ studentId: s.id, ...(roll[s.id] || { status: STATUS.PRESENT }) }));

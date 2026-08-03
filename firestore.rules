@@ -52,10 +52,12 @@ service cloud.firestore {
     }
 
     // --- Élèves ---
+    // Pas de suppression définitive : un départ se traduit par departedAt, jamais par la
+    // disparition du document (les appels passés référencent son studentId).
     match /students/{studentId} {
       allow read: if hasProfile();
-      allow create: if isAdmin();
-      allow update, delete: if false; // pas d'édition/suppression dans l'interface actuelle
+      allow create, update: if isAdmin();
+      allow delete: if false;
     }
 
     // --- Créneaux horaires (fixes, gérés via script de seed) ---
