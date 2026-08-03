@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useStudents, createStudent, findDuplicateStudent } from "../../lib/students";
 import { useClasses } from "../../lib/classes";
+import { useAllRecords } from "../../lib/attendance";
 import { parseStudentsWorkbook, buildImportDiff, exportStudentsWorkbook } from "../../lib/studentImport";
 import { Field, Select, TextInput } from "../../components/ui/Field";
 import Button from "../../components/ui/Button";
@@ -16,6 +17,7 @@ const ROW_COLUMNS = "1.3fr 1fr 1fr 1fr 170px";
 export default function StudentsAdminTab({ isAdmin }) {
   const { data: students } = useStudents();
   const { data: classes } = useClasses();
+  const { data: records } = useAllRecords();
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -248,6 +250,8 @@ export default function StudentsAdminTab({ isAdmin }) {
           student={managingStudent}
           classes={classes}
           classById={classById}
+          students={students}
+          records={records}
           isAdmin={isAdmin}
           onClose={() => setManagingId(null)}
         />

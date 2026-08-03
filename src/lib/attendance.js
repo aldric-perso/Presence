@@ -276,6 +276,11 @@ export function colorForPct(pct, seuil) {
   return "var(--color-red)";
 }
 
+/** Appels contenant au moins une entrée pour cet élève — utilisé avant suppression/fusion. */
+export function recordsReferencingStudent(records, studentId) {
+  return records.filter((r) => (r.entries || []).some((e) => e.studentId === studentId));
+}
+
 /** Un ligne par élève et par matière : minutes dues, minutes vues, taux de présence. */
 export function exportStudentsCsv(studentsStats) {
   const header = ["Élève", "Classe", "Matière", "Séances", "Minutes dues", "Minutes vues", "Présence (%)"];

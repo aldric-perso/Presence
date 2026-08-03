@@ -11,8 +11,9 @@ import {
   serverTimestamp,
   updateDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
-import { db } from "../firebase";
+import { auth, db } from "../firebase";
 import { useCollection } from "./useCollection";
 import { normalize } from "./ids";
 import { todayISO } from "./dates";
@@ -125,4 +126,43 @@ export async function updateStudentName(studentId, { firstName, lastName }) {
  */
 export async function deleteStudent(studentId) {
   await deleteDoc(doc(db, "students", studentId));
+}
+
+/**
+ * Fusionne deux fiches élève créées par erreur pour la même personne (ex. faute de frappe sur le
+ * nom). Toutes les entrées d'appel du doublon sont réattribuées à l'élève cible ; si un appel
+ * contenait déjà une entrée pour les deux (les deux fiches existaient au moment de la prise
+ * d'appel), l'entrée du doublon est retirée et celle de la cible conservée. Chaque appel modifié
+ * reçoit une correction tracée. Le doublon est ensuite supprimé définitivement.
+ */
+export async function mergeStudents({ duplicateId, duplicateName, targetId, targetName, records }) {
+  const affected = records.filter((r) => (r.entries || []).some((e) => e.studentId === duplicateId));
+
+  const actorSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
+  const actorName = actorSnap.exists() ? actorSnap.data().displayName : auth.currentUser.email;
+  const reason = `Fusion : « ${duplicateName} » → « ${targetName} »`;
+
+  const CHUNK = 400;
+  for (let i = 0; i < affected.length; i += CHUNK) {
+    const batch = writeBatch(db);
+    affected.slice(i, i + CHUNK).forEach((record) => {
+      const hasTarget = record.entries.some((e) => e.studentId === targetId);
+      const nextEntries = hasTarget
+        ? record.entries.filter((e) => e.studentId !== duplicateId)
+        : record.entries.map((e) => (e.studentId === duplicateId ? { ...e, studentId: targetId } : e));
+      batch.update(doc(db, "attendanceRecords", record.id), {
+        entries: nextEntries,
+        corrections: arrayUnion({
+          by: auth.currentUser.uid,
+          byName: actorName,
+          at: new Date().toISOString(),
+          reason,
+        }),
+      });
+    });
+    await batch.commit();
+  }
+
+  await deleteDoc(doc(db, "students", duplicateId));
+  return { recordsUpdated: affected.length };
 }
