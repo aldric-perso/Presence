@@ -155,13 +155,28 @@ Actions* du repo GitHub :
 
 - `classes/{id}` — nom, unité de soins, enseignant référent, `archived`.
 - `subjects/{id}` — nom, durée de séance en minutes (50 par défaut).
-- `students/{id}` — prénom, nom, classe.
+- `students/{id}` — prénom, nom, classe actuelle, `arrivedAt`/`departedAt` (dates), `classHistory`
+  (historique des classes avec date d'effet).
 - `timeSlots/{id}` — créneaux horaires fixes (gérés par `scripts/seed.js`).
 - `users/{uid}` — profil enseignant/admin ; **le rôle réel est ce champ Firestore**, protégé par les
   règles (seul un admin peut le modifier) — pas de custom claim.
 - `settings/general` — réglages (seuil d'alerte de présence).
 - `attendanceRecords/{date_classId_subjectId_timeSlotId}` — un appel verrouillé et signé. L'ID
   déterministe garantit l'unicité au niveau base de données (cf. section sécurité ci-dessus).
+
+## Import/export Excel des élèves
+
+*Paramètres → Élèves* permet d'exporter la liste actuelle en `.xlsx` et d'en importer une nouvelle
+version. Colonnes attendues à l'import : **Prénom**, **Nom**, **Classe** (doit correspondre à une
+classe existante), **Arrivé le** et **Parti le** (optionnelles, formats `JJ/MM/AAAA` ou date Excel).
+
+Avant toute écriture, un écran de revue présente le diff face à la base actuelle :
+- un nom absent de la base → nouvel élève (arrivée = date de l'import si non précisée) ;
+- un nom existant dont la classe diffère → décision demandée (changement de classe avec date, ou
+  doublon à ignorer) ;
+- un élève actif absent du fichier importé → considéré parti à la date de l'import.
+
+Rien n'est écrit tant que l'admin n'a pas confirmé l'écran de revue.
 
 ## Choix de périmètre (v1)
 
