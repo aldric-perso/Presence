@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useClasses, createClass, archiveClass, findDuplicateClass } from "../../lib/classes";
 import { useTeachers } from "../../lib/users";
 import { useStudents } from "../../lib/students";
-import { Field, Select, TextInput } from "../../components/ui/Field";
+import { Field, TextInput } from "../../components/ui/Field";
 import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
 import styles from "./Shared.module.css";
@@ -13,7 +13,6 @@ export default function ClassesAdminTab({ isAdmin }) {
   const { data: students } = useStudents();
 
   const [name, setName] = useState("");
-  const [referentId, setReferentId] = useState(teachers[0]?.id || "");
   const [message, setMessage] = useState("");
   const [pendingArchive, setPendingArchive] = useState(null);
 
@@ -24,8 +23,7 @@ export default function ClassesAdminTab({ isAdmin }) {
       setMessage(`Une classe très proche existe déjà : « ${dupe.name} ». Aucune création.`);
       return;
     }
-    const referent = teachers.find((t) => t.id === referentId);
-    await createClass({ name, referentId: referent?.id, referentName: referent?.displayName });
+    await createClass({ name });
     setName("");
     setMessage(`Classe « ${name.trim()} » créée.`);
   }
@@ -38,18 +36,9 @@ export default function ClassesAdminTab({ isAdmin }) {
           <p className={styles.formHint}>
             Le nom est comparé aux classes existantes en ignorant accents, tirets, espaces et casse.
           </p>
-          <div className={styles.formGrid} style={{ gridTemplateColumns: "1.4fr 1fr auto" }}>
+          <div className={styles.formGrid} style={{ gridTemplateColumns: "1fr auto" }}>
             <Field label="Nom de la classe">
               <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="3ᵉ" />
-            </Field>
-            <Field label="Enseignant référent">
-              <Select value={referentId} onChange={(e) => setReferentId(e.target.value)}>
-                {teachers.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.displayName}
-                  </option>
-                ))}
-              </Select>
             </Field>
             <Button onClick={handleCreate}>Créer</Button>
           </div>
