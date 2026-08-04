@@ -241,6 +241,10 @@
     display: none;
   }
 
+  .desktopOnly {
+    display: none !important;
+  }
+
   .backButton {
     display: inline-flex;
     align-items: center;

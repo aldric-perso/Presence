@@ -47,7 +47,7 @@ export default function ClassesAdminTab({ isAdmin }) {
       )}
 
       <div className={["card", styles.listCard].join(" ")}>
-        <div className={styles.tableHead} style={{ gridTemplateColumns: "1.3fr 0.7fr 1.6fr 100px" }}>
+        <div className={[styles.tableHead, styles.tableWide].join(" ")} style={{ gridTemplateColumns: "1.3fr 0.7fr 1.6fr 100px" }}>
           <span>Classe</span>
           <span>Effectif</span>
           <span>Enseignants affectés</span>
@@ -57,7 +57,7 @@ export default function ClassesAdminTab({ isAdmin }) {
           const effectif = students.filter((s) => s.classId === c.id).length;
           const profs = teachers.filter((t) => (t.classIds || []).includes(c.id)).map((t) => t.displayName);
           return (
-            <div key={c.id} className={styles.tableRow} style={{ gridTemplateColumns: "1.3fr 0.7fr 1.6fr 100px" }}>
+            <div key={c.id} className={[styles.tableRow, styles.tableWide].join(" ")} style={{ gridTemplateColumns: "1.3fr 0.7fr 1.6fr 100px" }}>
               <span style={{ fontWeight: 600 }}>{c.name}</span>
               <span style={{ color: "var(--color-ink-soft)" }}>{effectif} élèves</span>
               <span style={{ color: "var(--color-ink-soft)", fontSize: 13 }}>

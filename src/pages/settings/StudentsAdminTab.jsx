@@ -103,7 +103,10 @@ export default function StudentsAdminTab({ isAdmin }) {
       )}
 
       {isAdmin && (
-        <div className={["card", styles.formCard].join(" ")} style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div
+          className={["card", styles.formCard, styles.desktopOnly].join(" ")}
+          style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}
+        >
           <div style={{ flex: 1 }}>
             <div className={styles.formTitle}>Import / export Excel</div>
             <p className={styles.formHint} style={{ margin: 0 }}>
@@ -140,7 +143,7 @@ export default function StudentsAdminTab({ isAdmin }) {
       </div>
 
       <div className={["card", styles.listCard].join(" ")}>
-        <div className={styles.tableHead} style={{ gridTemplateColumns: ROW_COLUMNS }}>
+        <div className={[styles.tableHead, styles.tableWide].join(" ")} style={{ gridTemplateColumns: ROW_COLUMNS }}>
           <SortableHeader label="Élève" sortKey="name" sort={sort} onSort={toggleSort} />
           <SortableHeader label="Classe" sortKey="class" sort={sort} onSort={toggleSort} />
           <SortableHeader label="Arrivé le" sortKey="arrivedAt" sort={sort} onSort={toggleSort} />
@@ -148,7 +151,7 @@ export default function StudentsAdminTab({ isAdmin }) {
           <span></span>
         </div>
         {sortedStudents.map((s) => (
-          <div key={s.id} className={styles.tableRow} style={{ gridTemplateColumns: ROW_COLUMNS }}>
+          <div key={s.id} className={[styles.tableRow, styles.tableWide].join(" ")} style={{ gridTemplateColumns: ROW_COLUMNS }}>
             <span style={{ fontWeight: 600 }}>{s.fullName}</span>
             <span style={{ color: "var(--color-ink-soft)" }}>{classById.get(s.classId)?.name || "—"}</span>
             <span style={{ color: "var(--color-ink-soft)" }}>{s.arrivedAt ? formatDateShort(s.arrivedAt) : "—"}</span>

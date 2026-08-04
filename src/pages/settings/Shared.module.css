@@ -166,8 +166,10 @@
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
-  .tableHead,
-  .tableRow {
+  /* Uniquement pour les tableaux réellement larges (Classes, Élèves) — ne pas mettre sur
+     .tableHead/.tableRow directement, sinon les lignes étroites (ex. créneaux horaires) hériteraient
+     aussi d'une largeur minimale forcée et d'un scroll dont elles n'ont pas besoin. */
+  .tableWide {
     min-width: 560px;
   }
 
@@ -176,5 +178,9 @@
   }
   .groupHeader {
     flex-wrap: wrap;
+  }
+
+  .desktopOnly {
+    display: none !important;
   }
 }

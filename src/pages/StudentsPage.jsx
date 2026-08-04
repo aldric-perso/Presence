@@ -63,7 +63,12 @@ export default function StudentsPage() {
             {settings.presenceThreshold}%.
           </p>
         </div>
-        <Button variant="ghost" onClick={() => exportStudentsCsv(stats)} disabled={!stats.length}>
+        <Button
+          variant="ghost"
+          className={styles.desktopOnly}
+          onClick={() => exportStudentsCsv(stats)}
+          disabled={!stats.length}
+        >
           Exporter en CSV
         </Button>
       </div>

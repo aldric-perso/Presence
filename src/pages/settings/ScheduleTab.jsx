@@ -58,7 +58,7 @@ function ThresholdSection({ isAdmin, settings }) {
       <p className={styles.formHint}>
         En dessous de ce taux, un élève apparaît en alerte dans le suivi de présence.
       </p>
-      <div style={{ display: "flex", gap: 10, alignItems: "end" }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "end", flexWrap: "wrap" }}>
         <div style={{ width: 140 }}>
           <Field label="Seuil (%)">
             <TextInput
@@ -105,8 +105,8 @@ function TimeSlotsSection({ isAdmin, timeSlots }) {
 
       {isAdmin && (
         <div className={["card", styles.formCard].join(" ")}>
-          <div style={{ display: "flex", gap: 10, alignItems: "end" }}>
-            <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "end", flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 160 }}>
               <Field label="Nouveau créneau">
                 <TextInput
                   value={newLabel}
@@ -124,8 +124,8 @@ function TimeSlotsSection({ isAdmin, timeSlots }) {
         {timeSlots.map((slot) => (
           <div
             key={slot.id}
-            className={styles.tableRow}
-            style={{ gridTemplateColumns: isAdmin ? "1fr 90px 90px" : "1fr", alignItems: "center" }}
+            className={[styles.tableRow, styles.responsiveFormGrid].join(" ")}
+            style={{ gridTemplateColumns: isAdmin ? "1fr 90px 90px" : "1fr", alignItems: "center", gap: 8 }}
           >
             {isAdmin ? (
               <TextInput
@@ -220,8 +220,8 @@ function ReasonsSection({ isAdmin, title, field, reasons, records, placeholder }
 
       {isAdmin && (
         <div className={["card", styles.formCard].join(" ")}>
-          <div style={{ display: "flex", gap: 10, alignItems: "end" }}>
-            <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "end", flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 160 }}>
               <Field label="Nouveau motif">
                 <TextInput value={label} onChange={(e) => setLabel(e.target.value)} placeholder={placeholder} />
               </Field>
@@ -328,7 +328,7 @@ function MinuteChoicesSection({ isAdmin, choices }) {
 
       {isAdmin && (
         <div className={["card", styles.formCard].join(" ")}>
-          <div style={{ display: "flex", gap: 10, alignItems: "end" }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "end", flexWrap: "wrap" }}>
             <div style={{ width: 140 }}>
               <Field label="Minutes">
                 <TextInput type="number" min={1} max={49} value={value} onChange={(e) => setValue(e.target.value)} />
