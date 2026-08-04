@@ -136,6 +136,28 @@ canal de ton choix (ton propre e-mail, etc.). Ça fonctionne aussi bien juste ap
 compte que pour un "mot de passe oublié" resté sans réponse — dans les deux cas c'est le même souci
 de délivrabilité, donc le même contournement.
 
+#### ⚠️ Ne jamais supprimer un enseignant, une matière ou une classe directement dans Firestore
+
+L'appli ne permet pas de vraiment supprimer un compte enseignant (seul le rôle/l'activation se
+changent depuis *Paramètres → Enseignants*) ni une classe (archivage uniquement). Une matière, elle,
+peut être retirée depuis l'appli — ce qui nettoie automatiquement les affectations des enseignants
+qui l'avaient cochée.
+
+Si tu supprimes un document directement dans la console Firestore au lieu de passer par l'appli, ça
+casse ce nettoyage :
+- **Enseignant supprimé dans `users`** : son compte Authentication (identifiants de connexion)
+  survit. Recréer la personne depuis l'appli échoue alors avec « Un compte existe déjà avec cette
+  adresse e-mail ». Pour le débloquer :
+  ```bash
+  npm run delete-orphan-account -- email@etablissement.fr
+  ```
+  Le script refuse de supprimer le compte s'il a encore un profil Firestore actif (sécurité), donc
+  il n'est utile qu'après une suppression manuelle de ce genre.
+- **Matière supprimée dans `subjects`** : les enseignants qui l'avaient cochée gardent un ID de
+  matière fantôme dans leur profil — visible comme un nombre incohérent dans le récapitulatif
+  (« 1 matière » alors que l'éditeur d'affectations n'affiche rien). Rouvrir l'éditeur d'affectations
+  de cet enseignant et cliquer sur n'importe quelle case suffit à nettoyer l'ID fantôme au passage.
+
 ### 8. Lancer l'application
 
 ```bash

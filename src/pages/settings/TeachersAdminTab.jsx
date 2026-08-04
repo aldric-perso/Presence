@@ -55,7 +55,7 @@ export default function TeachersAdminTab({ isAdmin }) {
     } catch (err) {
       setError(
         err.code === "auth/email-already-in-use"
-          ? "Un compte existe déjà avec cette adresse e-mail."
+          ? "Un compte Authentication existe déjà avec cette adresse e-mail — si tu as supprimé cette personne directement dans Firestore (et non depuis cette page), son compte de connexion existe encore. Utilise `npm run delete-orphan-account -- email` en local pour le supprimer, puis recrée le compte ici."
           : "La création du compte a échoué.",
       );
     } finally {
@@ -111,79 +111,88 @@ export default function TeachersAdminTab({ isAdmin }) {
       {roleError && <p style={{ marginBottom: 14, fontSize: 13, color: "var(--color-red)" }}>{roleError}</p>}
 
       <div style={{ display: "grid", gap: 12 }}>
-        {teachers.map((t) => (
-          <div key={t.id} className={["card", styles.groupCard].join(" ")}>
-            <div className={styles.groupHeader}>
-              <Avatar name={t.displayName} size={38} />
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 15, fontWeight: 600 }}>{t.displayName}</span>
-                  {t.role === "admin" && <Badge tone="green">Admin</Badge>}
+        {teachers.map((t) => {
+          // Ne compte/n'affiche que les classes et matières qui existent encore : une matière ou
+          // une classe supprimée peut laisser un ID fantôme dans le profil (ex. suppression
+          // manuelle dans Firestore, en dehors de l'appli) — sans ce filtre, le récapitulatif
+          // affiche un nombre qui ne correspond à rien de visible dans l'éditeur ci-dessous.
+          const validClassIds = (t.classIds || []).filter((id) => classes.some((c) => c.id === id));
+          const validSubjectIds = (t.subjectIds || []).filter((id) => subjects.some((s) => s.id === id));
+
+          return (
+            <div key={t.id} className={["card", styles.groupCard].join(" ")}>
+              <div className={styles.groupHeader}>
+                <Avatar name={t.displayName} size={38} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 15, fontWeight: 600 }}>{t.displayName}</span>
+                    {t.role === "admin" && <Badge tone="green">Admin</Badge>}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--color-ink-soft)", marginTop: 3 }}>
+                    {t.email} · {validSubjectIds.length} matière(s) · {validClassIds.length} classe(s)
+                  </div>
                 </div>
-                <div style={{ fontSize: 12, color: "var(--color-ink-soft)", marginTop: 3 }}>
-                  {t.email} · {(t.subjectIds || []).length} matière(s) · {(t.classIds || []).length} classe(s)
-                </div>
+                {isAdmin && (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => setPendingRoleChange(t)}>
+                      Basculer admin
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => setEditingId(editingId === t.id ? null : t.id)}
+                    >
+                      Affectations
+                    </Button>
+                  </>
+                )}
               </div>
-              {isAdmin && (
-                <>
-                  <Button variant="ghost" size="sm" onClick={() => setPendingRoleChange(t)}>
-                    Basculer admin
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => setEditingId(editingId === t.id ? null : t.id)}
-                  >
-                    Affectations
-                  </Button>
-                </>
+
+              {editingId === t.id && (
+                <div className={[styles.groupBody, "animate-pop"].join(" ")}>
+                  <div>
+                    <div className={styles.toggleLabel}>Classes affectées</div>
+                    <div className={styles.chipRow}>
+                      {classes.map((c) => (
+                        <Pill
+                          key={c.id}
+                          active={validClassIds.includes(c.id)}
+                          onClick={() =>
+                            updateTeacherAssignments(t.id, {
+                              classIds: toggleId(validClassIds, c.id),
+                              subjectIds: validSubjectIds,
+                            })
+                          }
+                        >
+                          {c.name}
+                        </Pill>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div className={styles.toggleLabel}>Matières enseignées</div>
+                    <div className={styles.chipRow}>
+                      {subjects.map((s) => (
+                        <Pill
+                          key={s.id}
+                          tone="green"
+                          active={validSubjectIds.includes(s.id)}
+                          onClick={() =>
+                            updateTeacherAssignments(t.id, {
+                              classIds: validClassIds,
+                              subjectIds: toggleId(validSubjectIds, s.id),
+                            })
+                          }
+                        >
+                          {s.name}
+                        </Pill>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
-
-            {editingId === t.id && (
-              <div className={[styles.groupBody, "animate-pop"].join(" ")}>
-                <div>
-                  <div className={styles.toggleLabel}>Classes affectées</div>
-                  <div className={styles.chipRow}>
-                    {classes.map((c) => (
-                      <Pill
-                        key={c.id}
-                        active={(t.classIds || []).includes(c.id)}
-                        onClick={() =>
-                          updateTeacherAssignments(t.id, {
-                            classIds: toggleId(t.classIds, c.id),
-                            subjectIds: t.subjectIds || [],
-                          })
-                        }
-                      >
-                        {c.name}
-                      </Pill>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <div className={styles.toggleLabel}>Matières enseignées</div>
-                  <div className={styles.chipRow}>
-                    {subjects.map((s) => (
-                      <Pill
-                        key={s.id}
-                        tone="green"
-                        active={(t.subjectIds || []).includes(s.id)}
-                        onClick={() =>
-                          updateTeacherAssignments(t.id, {
-                            classIds: t.classIds || [],
-                            subjectIds: toggleId(t.subjectIds, s.id),
-                          })
-                        }
-                      >
-                        {s.name}
-                      </Pill>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {createdInfo && (

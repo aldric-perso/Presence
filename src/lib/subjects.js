@@ -1,5 +1,17 @@
 import { useMemo } from "react";
-import { addDoc, collection, deleteDoc, doc, orderBy, query, serverTimestamp } from "firebase/firestore";
+import {
+  addDoc,
+  arrayRemove,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+  updateDoc,
+  where,
+} from "firebase/firestore";
 import { db } from "../firebase";
 import { useCollection } from "./useCollection";
 import { normalize } from "./ids";
@@ -26,6 +38,15 @@ export async function createSubject(name) {
   });
 }
 
+/**
+ * Retire aussi la matière des affectations de tout enseignant qui l'avait cochée : sans ça, un
+ * enseignant garde un ID de matière fantôme dans son profil (compté dans le récapitulatif mais
+ * invisible dans l'éditeur d'affectations, puisque celui-ci ne liste que les matières existantes).
+ */
 export async function removeSubject(subjectId) {
+  const affected = await getDocs(
+    query(collection(db, "users"), where("subjectIds", "array-contains", subjectId)),
+  );
+  await Promise.all(affected.docs.map((d) => updateDoc(d.ref, { subjectIds: arrayRemove(subjectId) })));
   await deleteDoc(doc(db, "subjects", subjectId));
 }
