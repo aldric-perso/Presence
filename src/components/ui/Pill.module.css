@@ -52,6 +52,12 @@
   color: #fff;
   font-weight: 600;
 }
+.toneTeal.active {
+  border-color: var(--color-teal);
+  background: var(--color-teal);
+  color: #fff;
+  font-weight: 600;
+}
 
 .segmentWrap {
   display: inline-flex;

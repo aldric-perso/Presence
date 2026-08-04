@@ -4,12 +4,11 @@ import { useStudents } from "../lib/students";
 import { useClasses } from "../lib/classes";
 import { useAllRecords, computeStudentStats, exportStudentsCsv } from "../lib/attendance";
 import { useSettings, buildReasonsLookup } from "../lib/settings";
-import { formatDateShort } from "../lib/dates";
+import { formatDateShort, todayISO } from "../lib/dates";
 import { normalize } from "../lib/ids";
-import { SegmentedControl } from "../components/ui/Pill";
 import Button from "../components/ui/Button";
 import Badge from "../components/ui/Badge";
-import { TextInput } from "../components/ui/Field";
+import { Field, TextInput } from "../components/ui/Field";
 import ProgressBar from "../components/ui/ProgressBar";
 import Ring from "../components/ui/Ring";
 import styles from "./StudentsPage.module.css";
@@ -22,9 +21,9 @@ export default function StudentsPage() {
   const [params] = useSearchParams();
 
   const [selectedId, setSelectedId] = useState(() => params.get("id"));
-  const [view, setView] = useState("fiche");
   const [search, setSearch] = useState("");
-  const [showDeparted, setShowDeparted] = useState(false);
+  const [startDate, setStartDate] = useState(() => todayISO());
+  const [endDate, setEndDate] = useState(() => todayISO());
   const [mobileShowDetail, setMobileShowDetail] = useState(() => !!params.get("id"));
 
   function selectStudent(id) {
@@ -34,27 +33,33 @@ export default function StudentsPage() {
 
   const classById = useMemo(() => new Map(classes.map((c) => [c.id, c])), [classes]);
 
+  const periodRecords = useMemo(() => {
+    const start = startDate <= endDate ? startDate : endDate;
+    const end = startDate <= endDate ? endDate : startDate;
+    return records.filter((r) => r.date >= start && r.date <= end);
+  }, [records, startDate, endDate]);
+
   const stats = useMemo(() => {
     const enriched = students.map((s) => ({ ...s, className: classById.get(s.classId)?.name || "—" }));
     const reasonsLookup = buildReasonsLookup(settings);
     return computeStudentStats({
       students: enriched,
-      records,
+      records: periodRecords,
       seuil: settings.presenceThreshold,
       reasonsLookup,
     }).sort((a, b) => a.pct - b.pct);
-  }, [students, classById, records, settings]);
+  }, [students, classById, periodRecords, settings]);
 
   const filteredStats = useMemo(() => {
     const q = normalize(search.trim());
     return stats.filter((s) => {
-      if (!showDeparted && s.departedAt) return false;
+      if (s.subjects.length === 0) return false;
       if (q && !normalize(s.fullName).includes(q)) return false;
       return true;
     });
-  }, [stats, search, showDeparted]);
+  }, [stats, search]);
 
-  const selected = stats.find((s) => s.id === selectedId) || stats[0];
+  const selected = stats.find((s) => s.id === selectedId) || filteredStats[0];
   const loading = studentsLoading || recordsLoading;
 
   return (
@@ -63,23 +68,34 @@ export default function StudentsPage() {
         <div>
           <h1>Suivi de présence</h1>
           <p className={styles.subtitle}>
-            Temps de présence effectif rapporté au temps de cours dû. Seuil d'alerte :{" "}
-            {settings.presenceThreshold}%.
+            Temps de présence effectif rapporté au temps de cours dû, sur la période sélectionnée.
+            Seuil d'alerte : {settings.presenceThreshold}%.
           </p>
         </div>
         <Button
           variant="ghost"
           className={styles.desktopOnly}
-          onClick={() => exportStudentsCsv(stats)}
-          disabled={!stats.length}
+          onClick={() => exportStudentsCsv(filteredStats)}
+          disabled={!filteredStats.length}
         >
           Exporter en CSV
         </Button>
       </div>
 
-      {!loading && stats.length === 0 ? (
+      <div className={["card", styles.periodBar].join(" ")}>
+        <Field label="Du">
+          <TextInput type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        </Field>
+        <Field label="Au">
+          <TextInput type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+        </Field>
+      </div>
+
+      {!loading && filteredStats.length === 0 ? (
         <div className="card" style={{ padding: 48, textAlign: "center", color: "var(--color-muted)" }}>
-          Aucun élève enregistré pour le moment. Ajoute des élèves depuis Paramètres → Élèves.
+          {students.length === 0
+            ? "Aucun élève enregistré pour le moment. Ajoute des élèves depuis Paramètres → Élèves."
+            : "Aucun élève n'a eu d'appel enregistré sur cette période."}
         </div>
       ) : (
         <div className={styles.layout}>
@@ -96,10 +112,6 @@ export default function StudentsPage() {
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Rechercher un élève…"
               />
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, marginTop: 10 }}>
-                <input type="checkbox" checked={showDeparted} onChange={(e) => setShowDeparted(e.target.checked)} />
-                Afficher les élèves parti(e)s
-              </label>
             </div>
             <div className={styles.listHeader}>{filteredStats.length} élèves · triés par présence</div>
             <div className={styles.listScroll}>
@@ -126,23 +138,7 @@ export default function StudentsPage() {
             <button type="button" className={styles.backButton} onClick={() => setMobileShowDetail(false)}>
               ← Retour à la liste
             </button>
-            <div className={styles.toolbar}>
-              <SegmentedControl
-                value={view}
-                onChange={setView}
-                options={[
-                  { value: "fiche", label: "Fiche élève" },
-                  { value: "tableau", label: "Tableau de bord" },
-                ]}
-              />
-            </div>
-
-            {selected &&
-              (view === "fiche" ? (
-                <StudentSheet student={selected} />
-              ) : (
-                <StudentDashboard student={selected} />
-              ))}
+            {selected && <StudentSheet student={selected} />}
           </div>
         </div>
       )}
@@ -178,6 +174,12 @@ function StudentSheet({ student: s }) {
                 {s.nbRet}
               </div>
               <div className={styles.ficheStatLabel}>retards</div>
+            </div>
+            <div>
+              <div className={styles.ficheStatValue} style={{ color: "var(--color-teal)" }}>
+                {s.nbPartiel}
+              </div>
+              <div className={styles.ficheStatLabel}>présences partielles</div>
             </div>
           </div>
         </div>
@@ -219,74 +221,6 @@ function StudentSheet({ student: s }) {
         {s.absences.length === 0 && (
           <p style={{ fontSize: 13, color: "var(--color-muted)" }}>Aucune absence enregistrée.</p>
         )}
-      </div>
-    </div>
-  );
-}
-
-function StudentDashboard({ student: s }) {
-  const absJust = s.absences.filter((a) => a.justified).length;
-  const absNonJust = s.absences.filter((a) => !a.justified).length;
-  const retardMin = s.absences
-    .filter((a) => a.minutesMissed && a.minutesMissed < 50)
-    .reduce((sum, a) => sum + a.minutesMissed, 0);
-
-  return (
-    <div className="animate-pop">
-      <div className={styles.tableauHead}>
-        <div>
-          <div className={styles.tableauName}>{s.fullName}</div>
-          <div className={styles.tableauMeta}>{s.className}</div>
-        </div>
-        <div style={{ marginLeft: "auto", textAlign: "right" }}>
-          <div className={styles.tableauPct}>{s.pct}%</div>
-          <div className={styles.tableauPctLabel}>
-            présence effective · {s.minutesSeen} / {s.minutesDue} min
-          </div>
-        </div>
-      </div>
-
-      <div className={styles.miniStats}>
-        <div className={["card", styles.miniStat].join(" ")}>
-          <div className={styles.miniStatLabel}>Absences justifiées</div>
-          <div className={styles.miniStatValue}>{absJust}</div>
-        </div>
-        <div className={["card", styles.miniStat].join(" ")}>
-          <div className={styles.miniStatLabel}>Non justifiées</div>
-          <div className={styles.miniStatValue} style={{ color: "var(--color-red)" }}>
-            {absNonJust}
-          </div>
-        </div>
-        <div className={["card", styles.miniStat].join(" ")}>
-          <div className={styles.miniStatLabel}>Retards cumulés</div>
-          <div className={styles.miniStatValue} style={{ color: "var(--color-amber)" }}>
-            {retardMin} min
-          </div>
-        </div>
-      </div>
-
-      <div className={["card", styles.subjectTable].join(" ")}>
-        <div className={styles.subjectTableHead}>
-          <span>Matière</span>
-          <span>Séances</span>
-          <span>Minutes</span>
-          <span>Présence</span>
-        </div>
-        {s.subjects.map((subj) => (
-          <div key={subj.name} className={["tabular", styles.subjectTableRow].join(" ")}>
-            <span style={{ fontWeight: 600 }}>{subj.name}</span>
-            <span style={{ color: "var(--color-ink-soft)" }}>{subj.sessions}</span>
-            <span style={{ color: "var(--color-ink-soft)" }}>
-              {subj.seen} / {subj.due}
-            </span>
-            <span className={styles.presenceCell}>
-              <span style={{ flex: 1 }}>
-                <ProgressBar pct={subj.pct} color={subj.color} size="sm" />
-              </span>
-              <strong>{subj.pct}%</strong>
-            </span>
-          </div>
-        ))}
       </div>
     </div>
   );

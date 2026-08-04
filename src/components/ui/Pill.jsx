@@ -5,6 +5,7 @@ const TONE_CLASS = {
   green: styles.toneGreen,
   amber: styles.toneAmber,
   red: styles.toneRed,
+  teal: styles.toneTeal,
 };
 
 export function Pill({

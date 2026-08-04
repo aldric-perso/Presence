@@ -31,7 +31,12 @@ export default function CorrectionPage() {
     if (record) {
       const seeded = {};
       for (const e of record.entries || []) {
-        seeded[e.studentId] = { status: e.status, minutesMissed: e.minutesMissed, reason: e.reason };
+        seeded[e.studentId] = {
+          status: e.status,
+          minutesMissed: e.minutesMissed,
+          minutesPresent: e.minutesPresent,
+          reason: e.reason,
+        };
       }
       setRoll(seeded);
     }
@@ -39,18 +44,30 @@ export default function CorrectionPage() {
 
   function setStatus(studentId, status) {
     setRoll((prev) => {
-      const cur = prev[studentId] || { status: STATUS.PRESENT, minutesMissed: 0, reason: null };
-      if (status === STATUS.PRESENT) return { ...prev, [studentId]: { status: STATUS.PRESENT, minutesMissed: 0, reason: null } };
+      const cur = prev[studentId] || { status: STATUS.PRESENT, minutesMissed: 0, minutesPresent: null, reason: null };
+      if (status === STATUS.PRESENT)
+        return { ...prev, [studentId]: { status: STATUS.PRESENT, minutesMissed: 0, minutesPresent: null, reason: null } };
       if (status === STATUS.LATE)
         return {
           ...prev,
           [studentId]: {
             status: STATUS.LATE,
             minutesMissed: cur.status === STATUS.LATE ? cur.minutesMissed : 10,
+            minutesPresent: null,
             reason: cur.reason || null,
           },
         };
-      return { ...prev, [studentId]: { status: STATUS.ABSENT, minutesMissed: 50, reason: cur.reason || null } };
+      if (status === STATUS.PARTIAL)
+        return {
+          ...prev,
+          [studentId]: {
+            status: STATUS.PARTIAL,
+            minutesMissed: 0,
+            minutesPresent: cur.status === STATUS.PARTIAL ? cur.minutesPresent : settings.partialMinuteChoices?.[0] ?? 30,
+            reason: cur.reason || null,
+          },
+        };
+      return { ...prev, [studentId]: { status: STATUS.ABSENT, minutesMissed: 50, minutesPresent: null, reason: cur.reason || null } };
     });
   }
 
@@ -87,7 +104,8 @@ export default function CorrectionPage() {
         entries: entries.map((e) => ({
           studentId: e.studentId,
           status: e.status,
-          minutesMissed: e.status === STATUS.PRESENT ? 0 : e.minutesMissed,
+          minutesMissed: e.status === STATUS.PRESENT || e.status === STATUS.PARTIAL ? 0 : e.minutesMissed,
+          minutesPresent: e.status === STATUS.PARTIAL ? e.minutesPresent : null,
           reason: e.status === STATUS.PRESENT ? null : e.reason,
         })),
       });
@@ -127,8 +145,10 @@ export default function CorrectionPage() {
 
       <div className="card">
         {students.map((s) => {
-          const entry = roll[s.id] || { status: STATUS.PRESENT, minutesMissed: 0, reason: null };
-          const reasons = entry.status === STATUS.LATE ? settings.lateReasons : settings.absenceReasons;
+          const entry = roll[s.id] || { status: STATUS.PRESENT, minutesMissed: 0, minutesPresent: null, reason: null };
+          const isLate = entry.status === STATUS.LATE;
+          const isPartial = entry.status === STATUS.PARTIAL;
+          const reasons = isLate ? settings.lateReasons : isPartial ? settings.partialReasons : settings.absenceReasons;
           return (
             <div key={s.id} style={{ borderBottom: "1px solid var(--color-line)", padding: "14px 22px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
@@ -138,7 +158,10 @@ export default function CorrectionPage() {
                   <Pill size="sm" tone="green" active={entry.status === STATUS.PRESENT} onClick={() => setStatus(s.id, STATUS.PRESENT)}>
                     Présent
                   </Pill>
-                  <Pill size="sm" tone="amber" active={entry.status === STATUS.LATE} onClick={() => setStatus(s.id, STATUS.LATE)}>
+                  <Pill size="sm" tone="teal" active={isPartial} onClick={() => setStatus(s.id, STATUS.PARTIAL)}>
+                    Présence partielle
+                  </Pill>
+                  <Pill size="sm" tone="amber" active={isLate} onClick={() => setStatus(s.id, STATUS.LATE)}>
                     Retard
                   </Pill>
                   <Pill size="sm" tone="red" active={entry.status === STATUS.ABSENT} onClick={() => setStatus(s.id, STATUS.ABSENT)}>
@@ -148,10 +171,16 @@ export default function CorrectionPage() {
               </div>
               {entry.status !== STATUS.PRESENT && (
                 <div className="animate-pop" style={{ marginTop: 12, marginLeft: 48, display: "grid", gap: 10 }}>
-                  {entry.status === STATUS.LATE && (
+                  {(isLate || isPartial) && (
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {settings.lateMinuteChoices.map((m) => (
-                        <Pill key={m} size="xs" tone="amber" active={entry.minutesMissed === m} onClick={() => patchEntry(s.id, { minutesMissed: m })}>
+                      {(isLate ? settings.lateMinuteChoices : settings.partialMinuteChoices).map((m) => (
+                        <Pill
+                          key={m}
+                          size="xs"
+                          tone={isLate ? "amber" : "teal"}
+                          active={(isLate ? entry.minutesMissed : entry.minutesPresent) === m}
+                          onClick={() => patchEntry(s.id, isLate ? { minutesMissed: m } : { minutesPresent: m })}
+                        >
                           {m} min
                         </Pill>
                       ))}

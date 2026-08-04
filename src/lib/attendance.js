@@ -20,7 +20,7 @@ import { todayISO, isoDaysAgo } from "./dates";
 
 const recordsRef = collection(db, "attendanceRecords");
 
-export const STATUS = { PRESENT: "present", LATE: "retard", ABSENT: "absent" };
+export const STATUS = { PRESENT: "present", PARTIAL: "partiel", LATE: "retard", ABSENT: "absent" };
 
 /** Fenêtre pendant laquelle l'auteur d'un appel peut le corriger/supprimer sans passer par un admin. */
 export const EDIT_WINDOW_DAYS = 7;
@@ -88,6 +88,9 @@ function validateEntries(entries) {
     if (e.status === STATUS.LATE && (!Number.isFinite(e.minutesMissed) || e.minutesMissed <= 0 || e.minutesMissed >= 50)) {
       throw new Error("Durée de retard invalide.");
     }
+    if (e.status === STATUS.PARTIAL && (!Number.isFinite(e.minutesPresent) || e.minutesPresent <= 0 || e.minutesPresent >= 50)) {
+      throw new Error("Durée de présence partielle invalide.");
+    }
   }
 }
 
@@ -95,7 +98,8 @@ function cleanEntries(entries) {
   return entries.map((e) => ({
     studentId: e.studentId,
     status: e.status,
-    minutesMissed: e.status === STATUS.PRESENT ? 0 : e.status === STATUS.ABSENT ? 50 : e.minutesMissed,
+    minutesMissed: e.status === STATUS.PRESENT ? 0 : e.status === STATUS.ABSENT ? 50 : e.status === STATUS.PARTIAL ? 0 : e.minutesMissed,
+    minutesPresent: e.status === STATUS.PARTIAL ? e.minutesPresent : null,
     reason: e.status === STATUS.PRESENT ? null : e.reason.trim(),
   }));
 }
@@ -210,7 +214,7 @@ export function computeStudentStats({ students, records, seuil, reasonsLookup = 
   const byStudent = new Map(
     students.map((s) => [
       s.id,
-      { student: s, minutesDue: 0, minutesSeen: 0, nbAbs: 0, nbRet: 0, bySubject: new Map(), absences: [] },
+      { student: s, minutesDue: 0, minutesSeen: 0, nbAbs: 0, nbRet: 0, nbPartiel: 0, bySubject: new Map(), absences: [] },
     ]),
   );
 
@@ -222,20 +226,25 @@ export function computeStudentStats({ students, records, seuil, reasonsLookup = 
       const agg = byStudent.get(entry.studentId);
       if (!agg) continue;
 
-      const due = sessionMinutes;
+      // Une présence partielle est un aménagement prévu : elle compte pour 100% de présence sur
+      // le temps réellement dû (due=seen=minutesPresent), pas comme un manque sur la séance entière.
+      const due = entry.status === STATUS.PARTIAL ? entry.minutesPresent || 0 : sessionMinutes;
       const seen =
         entry.status === STATUS.PRESENT
           ? sessionMinutes
           : entry.status === STATUS.LATE
             ? Math.max(0, sessionMinutes - (entry.minutesMissed || 0))
-            : 0;
+            : entry.status === STATUS.PARTIAL
+              ? entry.minutesPresent || 0
+              : 0;
 
       agg.minutesDue += due;
       agg.minutesSeen += seen;
       if (entry.status === STATUS.ABSENT) agg.nbAbs += 1;
       if (entry.status === STATUS.LATE) agg.nbRet += 1;
+      if (entry.status === STATUS.PARTIAL) agg.nbPartiel += 1;
 
-      if (entry.status !== STATUS.PRESENT) {
+      if (entry.status === STATUS.LATE || entry.status === STATUS.ABSENT) {
         agg.absences.push({
           date: record.date,
           subject: record.subjectName || "—",
@@ -267,6 +276,7 @@ export function computeStudentStats({ students, records, seuil, reasonsLookup = 
       color: colorForPct(pct, seuil),
       nbAbs: agg.nbAbs,
       nbRet: agg.nbRet,
+      nbPartiel: agg.nbPartiel,
       absences: agg.absences.slice(0, 8),
       subjects: [...agg.bySubject.values()].map((s) => ({
         ...s,

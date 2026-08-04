@@ -62,7 +62,7 @@ export default function LoginPage() {
             Le suivi de présence des élèves, classe par classe, séance par séance.
           </p>
         </div>
-        <div className={styles.footNote}>École à l'hôpital</div>
+        <div className={styles.footNote}>Collège de l'Unité d'enseignement Jean Chevrier</div>
       </div>
 
       <div className={styles.formSide}>

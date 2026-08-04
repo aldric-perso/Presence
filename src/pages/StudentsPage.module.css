@@ -76,10 +76,16 @@
   color: var(--color-ink);
 }
 
-.toolbar {
+.periodBar {
   display: flex;
-  justify-content: flex-end;
-  margin-bottom: 14px;
+  gap: 16px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+.periodBar > div {
+  width: 170px;
 }
 
 .backButton {
@@ -146,92 +152,6 @@
   font-size: 14px;
 }
 
-.tableauHead {
-  background: var(--color-dark);
-  color: var(--color-bg);
-  border-radius: var(--radius-lg);
-  padding: 28px 32px;
-  display: flex;
-  align-items: center;
-  gap: 36px;
-}
-.tableauName {
-  font-family: var(--font-serif);
-  font-size: 26px;
-}
-.tableauMeta {
-  font-size: 13px;
-  color: var(--color-dark-faint);
-  margin-top: 4px;
-}
-.tableauPct {
-  font-family: var(--font-serif);
-  font-size: 56px;
-  line-height: 1;
-  color: var(--color-green-soft);
-}
-.tableauPctLabel {
-  font-size: 12px;
-  color: var(--color-dark-faint);
-  margin-top: 6px;
-}
-
-.miniStats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-top: 12px;
-}
-.miniStat {
-  padding: 18px;
-}
-.miniStatLabel {
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-  font-weight: 600;
-}
-.miniStatValue {
-  font-size: 26px;
-  font-weight: 700;
-  margin-top: 6px;
-}
-
-.subjectTable {
-  margin-top: 12px;
-  overflow: hidden;
-}
-.subjectTableHead,
-.subjectTableRow {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr 1fr;
-  gap: 12px;
-  padding: 12px 22px;
-  align-items: center;
-}
-.subjectTableHead {
-  background: var(--color-panel);
-  border-bottom: 1px solid var(--color-line);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-  font-weight: 600;
-}
-.subjectTableRow {
-  border-bottom: 1px solid var(--color-line);
-  font-size: 14px;
-}
-.subjectTableRow:last-child {
-  border-bottom: none;
-}
-.presenceCell {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 @media (max-width: 768px) {
   .layout {
     grid-template-columns: 1fr;
@@ -273,28 +193,5 @@
   .absenceRow {
     grid-template-columns: 1fr;
     gap: 4px;
-  }
-
-  .tableauHead {
-    flex-wrap: wrap;
-    gap: 16px;
-    padding: 20px;
-  }
-  .tableauHead > div:last-child {
-    margin-left: 0 !important;
-    text-align: left !important;
-  }
-
-  .miniStats {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .subjectTable {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-  .subjectTableHead,
-  .subjectTableRow {
-    min-width: 480px;
   }
 }

@@ -20,13 +20,21 @@ export const DEFAULT_LATE_REASONS = [
   { label: "Non justifié", justified: false },
 ];
 
+export const DEFAULT_PARTIAL_REASONS = [
+  { label: "Aménagement d'horaire prévu au carnet de soins", justified: true },
+  { label: "Rythme d'accueil thérapeutique", justified: true },
+];
+
 export const DEFAULT_LATE_MINUTE_CHOICES = [5, 10, 15, 30];
+export const DEFAULT_PARTIAL_MINUTE_CHOICES = [10, 20, 30, 40];
 
 const DEFAULT_SETTINGS = {
   presenceThreshold: DEFAULT_SEUIL,
   absenceReasons: DEFAULT_ABSENCE_REASONS,
   lateReasons: DEFAULT_LATE_REASONS,
+  partialReasons: DEFAULT_PARTIAL_REASONS,
   lateMinuteChoices: DEFAULT_LATE_MINUTE_CHOICES,
+  partialMinuteChoices: DEFAULT_PARTIAL_MINUTE_CHOICES,
 };
 
 export function useSettings() {
@@ -52,5 +60,6 @@ export function buildReasonsLookup(settings) {
   const map = new Map();
   for (const r of settings.absenceReasons || []) map.set(r.label, r.justified);
   for (const r of settings.lateReasons || []) map.set(r.label, r.justified);
+  for (const r of settings.partialReasons || []) map.set(r.label, r.justified);
   return map;
 }

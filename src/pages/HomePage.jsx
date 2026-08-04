@@ -22,6 +22,10 @@ export default function HomePage() {
     (sum, r) => sum + (r.entries || []).filter((e) => e.status === STATUS.LATE).length,
     0,
   );
+  const nbPartiels = todayRecords.reduce(
+    (sum, r) => sum + (r.entries || []).filter((e) => e.status === STATUS.PARTIAL).length,
+    0,
+  );
 
   return (
     <div className="page">
@@ -35,6 +39,7 @@ export default function HomePage() {
         <StatTile label="Appels aujourd'hui" value={todayRecords.length} />
         <StatTile label="Absents aujourd'hui" value={nbAbsents} alert={nbAbsents > 0} />
         <StatTile label="Retards aujourd'hui" value={nbRetards} />
+        <StatTile label="Présences partielles aujourd'hui" value={nbPartiels} />
       </div>
 
       <div className={styles.header}>
@@ -61,6 +66,7 @@ export default function HomePage() {
             </div>
             <div className="tabular" style={{ fontSize: 13, color: "var(--color-ink-soft)" }}>
               {r.entries.filter((e) => e.status === STATUS.PRESENT).length} présents ·{" "}
+              {r.entries.filter((e) => e.status === STATUS.PARTIAL).length} partielles ·{" "}
               {r.entries.filter((e) => e.status === STATUS.LATE).length} retards ·{" "}
               {r.entries.filter((e) => e.status === STATUS.ABSENT).length} absents
             </div>

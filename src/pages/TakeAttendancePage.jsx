@@ -14,7 +14,7 @@ import Modal from "../components/ui/Modal";
 import styles from "./TakeAttendancePage.module.css";
 
 function defaultEntry() {
-  return { status: STATUS.PRESENT, minutesMissed: 0, reason: null };
+  return { status: STATUS.PRESENT, minutesMissed: 0, minutesPresent: null, reason: null };
 }
 
 export default function TakeAttendancePage() {
@@ -56,7 +56,7 @@ export default function TakeAttendancePage() {
     setRoll((prev) => {
       const cur = prev[studentId] || defaultEntry();
       if (status === STATUS.PRESENT) {
-        return { ...prev, [studentId]: { status: STATUS.PRESENT, minutesMissed: 0, reason: null } };
+        return { ...prev, [studentId]: { status: STATUS.PRESENT, minutesMissed: 0, minutesPresent: null, reason: null } };
       }
       if (status === STATUS.LATE) {
         return {
@@ -64,13 +64,25 @@ export default function TakeAttendancePage() {
           [studentId]: {
             status: STATUS.LATE,
             minutesMissed: cur.status === STATUS.LATE ? cur.minutesMissed : 10,
+            minutesPresent: null,
             reason: cur.status === STATUS.LATE ? cur.reason : null,
+          },
+        };
+      }
+      if (status === STATUS.PARTIAL) {
+        return {
+          ...prev,
+          [studentId]: {
+            status: STATUS.PARTIAL,
+            minutesMissed: 0,
+            minutesPresent: cur.status === STATUS.PARTIAL ? cur.minutesPresent : settings.partialMinuteChoices?.[0] ?? 30,
+            reason: cur.status === STATUS.PARTIAL ? cur.reason : null,
           },
         };
       }
       return {
         ...prev,
-        [studentId]: { status: STATUS.ABSENT, minutesMissed: 50, reason: cur.reason || null },
+        [studentId]: { status: STATUS.ABSENT, minutesMissed: 50, minutesPresent: null, reason: cur.reason || null },
       };
     });
   }
@@ -81,6 +93,7 @@ export default function TakeAttendancePage() {
 
   const entries = students.map((s) => ({ studentId: s.id, ...(roll[s.id] || defaultEntry()) }));
   const nbPresents = entries.filter((e) => e.status === STATUS.PRESENT).length;
+  const nbPartiels = entries.filter((e) => e.status === STATUS.PARTIAL).length;
   const nbRetards = entries.filter((e) => e.status === STATUS.LATE).length;
   const nbAbsents = entries.filter((e) => e.status === STATUS.ABSENT).length;
   const missingReasons = entries.filter((e) => e.status !== STATUS.PRESENT && !e.reason);
@@ -88,7 +101,7 @@ export default function TakeAttendancePage() {
 
   const validationMsg = missingReasons.length
     ? `${missingReasons.length} motif(s) manquant(s) — la validation est bloquée.`
-    : `${nbPresents} présents, ${nbRetards} retards, ${nbAbsents} absents. Prêt à enregistrer.`;
+    : `${nbPresents} présents, ${nbPartiels} présences partielles, ${nbRetards} retards, ${nbAbsents} absents. Prêt à enregistrer.`;
 
   async function handleConfirmValidate() {
     setSubmitting(true);
@@ -102,7 +115,8 @@ export default function TakeAttendancePage() {
         entries: entries.map((e) => ({
           studentId: e.studentId,
           status: e.status,
-          minutesMissed: e.status === STATUS.PRESENT ? 0 : e.minutesMissed,
+          minutesMissed: e.status === STATUS.PRESENT || e.status === STATUS.PARTIAL ? 0 : e.minutesMissed,
+          minutesPresent: e.status === STATUS.PARTIAL ? e.minutesPresent : null,
           reason: e.status === STATUS.PRESENT ? null : e.reason,
         })),
       });
@@ -143,6 +157,12 @@ export default function TakeAttendancePage() {
                 {nbPresents}
               </div>
               <div className={styles.countLabel}>présents</div>
+            </div>
+            <div className={styles.countItem}>
+              <div className={styles.countValue} style={{ color: "var(--color-teal)" }}>
+                {nbPartiels}
+              </div>
+              <div className={styles.countLabel}>partielles</div>
             </div>
             <div className={styles.countItem}>
               <div className={styles.countValue} style={{ color: "var(--color-amber)" }}>
@@ -217,20 +237,22 @@ export default function TakeAttendancePage() {
 }
 
 function ReasonPicker({ entry, onPatch, settings }) {
-  const reasons = entry.status === STATUS.LATE ? settings.lateReasons : settings.absenceReasons;
+  const isLate = entry.status === STATUS.LATE;
+  const isPartial = entry.status === STATUS.PARTIAL;
+  const reasons = isLate ? settings.lateReasons : isPartial ? settings.partialReasons : settings.absenceReasons;
   return (
     <div>
-      {entry.status === STATUS.LATE && (
+      {(isLate || isPartial) && (
         <div style={{ marginBottom: 14 }}>
-          <div className={styles.detailLabel}>Temps d'absence</div>
+          <div className={styles.detailLabel}>{isLate ? "Temps d'absence" : "Temps de présence"}</div>
           <div className={styles.chipRow}>
-            {settings.lateMinuteChoices.map((m) => (
+            {(isLate ? settings.lateMinuteChoices : settings.partialMinuteChoices).map((m) => (
               <Pill
                 key={m}
                 size="sm"
-                tone="amber"
-                active={entry.minutesMissed === m}
-                onClick={() => onPatch({ minutesMissed: m })}
+                tone={isLate ? "amber" : "teal"}
+                active={(isLate ? entry.minutesMissed : entry.minutesPresent) === m}
+                onClick={() => onPatch(isLate ? { minutesMissed: m } : { minutesPresent: m })}
               >
                 {m} min
               </Pill>
@@ -265,6 +287,9 @@ function RollRow({ student, entry, onSetStatus, onPatch, settings }) {
         <div className={styles.actions}>
           <Pill tone="green" active={entry.status === STATUS.PRESENT} onClick={() => onSetStatus(STATUS.PRESENT)}>
             Présent
+          </Pill>
+          <Pill tone="teal" active={entry.status === STATUS.PARTIAL} onClick={() => onSetStatus(STATUS.PARTIAL)}>
+            Présence partielle
           </Pill>
           <Pill tone="amber" active={entry.status === STATUS.LATE} onClick={() => onSetStatus(STATUS.LATE)}>
             Retard

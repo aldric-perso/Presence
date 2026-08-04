@@ -32,7 +32,28 @@ export default function ScheduleTab({ isAdmin }) {
         records={records}
         placeholder="Ex. Transport en retard"
       />
-      <MinuteChoicesSection isAdmin={isAdmin} choices={settings.lateMinuteChoices} />
+      <MinuteChoicesSection
+        isAdmin={isAdmin}
+        field="lateMinuteChoices"
+        choices={settings.lateMinuteChoices}
+        title="Saisies rapides de temps (retard)"
+        hint="Les durées proposées en un clic lors de la saisie d'un retard, en minutes."
+      />
+      <ReasonsSection
+        isAdmin={isAdmin}
+        title="Motifs de présence partielle"
+        field="partialReasons"
+        reasons={settings.partialReasons}
+        records={records}
+        placeholder="Ex. Aménagement d'horaire prévu"
+      />
+      <MinuteChoicesSection
+        isAdmin={isAdmin}
+        field="partialMinuteChoices"
+        choices={settings.partialMinuteChoices}
+        title="Saisies rapides de temps (présence partielle)"
+        hint="Les durées de présence effective proposées en un clic pour une présence partielle prévue, en minutes."
+      />
       <ThresholdSection isAdmin={isAdmin} settings={settings} />
     </div>
   );
@@ -305,26 +326,24 @@ function ReasonsSection({ isAdmin, title, field, reasons, records, placeholder }
   );
 }
 
-function MinuteChoicesSection({ isAdmin, choices }) {
+function MinuteChoicesSection({ isAdmin, field, choices, title, hint }) {
   const [value, setValue] = useState("");
 
   async function handleAdd() {
     const n = Number(value);
     if (!n || n <= 0 || n >= 50 || choices.includes(n)) return;
-    await updateSettings({ lateMinuteChoices: [...choices, n].sort((a, b) => a - b) });
+    await updateSettings({ [field]: [...choices, n].sort((a, b) => a - b) });
     setValue("");
   }
 
   function removeChoice(n) {
-    updateSettings({ lateMinuteChoices: choices.filter((c) => c !== n) });
+    updateSettings({ [field]: choices.filter((c) => c !== n) });
   }
 
   return (
     <div>
-      <div className={styles.formTitle} style={{ marginBottom: 4 }}>Saisies rapides de temps (retard)</div>
-      <p className={styles.formHint}>
-        Les durées proposées en un clic lors de la saisie d'un retard, en minutes.
-      </p>
+      <div className={styles.formTitle} style={{ marginBottom: 4 }}>{title}</div>
+      <p className={styles.formHint}>{hint}</p>
 
       {isAdmin && (
         <div className={["card", styles.formCard].join(" ")}>

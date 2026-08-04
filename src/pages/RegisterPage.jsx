@@ -97,6 +97,7 @@ export default function RegisterPage() {
           const editable = isEditableByAuthor(r.date);
           const canModify = !r.deleted && (isAdmin || (r.authorId === user.uid && editable));
           const nbPresent = r.entries.filter((e) => e.status === "present").length;
+          const nbPartial = r.entries.filter((e) => e.status === "partiel").length;
           const nbLate = r.entries.filter((e) => e.status === "retard").length;
           const nbAbsent = r.entries.filter((e) => e.status === "absent").length;
 
@@ -133,7 +134,7 @@ export default function RegisterPage() {
                     {formatDateShort(r.date)} · {r.timeSlotLabel} · signé {r.authorName}
                   </div>
                   <div style={{ fontSize: 13, color: "var(--color-ink-soft)", marginTop: 2 }}>
-                    {nbPresent} présents · {nbLate} retards · {nbAbsent} absents
+                    {nbPresent} présents · {nbPartial} partielles · {nbLate} retards · {nbAbsent} absents
                   </div>
                 </div>
                 {canModify && (
