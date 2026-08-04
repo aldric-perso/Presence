@@ -118,6 +118,24 @@ personne concernée pour qu'elle définisse son mot de passe et se connecte.
 Les comptes suivants se créent ensuite directement depuis l'application, dans *Paramètres →
 Enseignants & admins*.
 
+#### Si l'e-mail Firebase n'arrive pas (ac-*.fr, numericable.fr, ...)
+
+Firebase Auth envoie les e-mails (création de compte, "mot de passe oublié") depuis un domaine
+générique (`noreply@<projet>.firebaseapp.com`). Ça passe très bien sur Gmail, mais certains domaines
+avec des filtres anti-spam stricts — académies (`ac-*.fr`), FAI comme numericable.fr — le bloquent
+ou le mettent en quarantaine, faute de SPF/DKIM propres à ce domaine. L'appli tente quand même
+l'envoi automatique à chaque fois (ça marche pour une partie des comptes), mais si un enseignant ne
+reçoit rien (après vérification des spams), génère-lui un lien manuellement :
+
+```bash
+npm run generate-reset-link -- email@ac-xxx.fr
+```
+
+Le script affiche un lien de réinitialisation à usage unique, à transmettre à la personne par le
+canal de ton choix (ton propre e-mail, etc.). Ça fonctionne aussi bien juste après la création d'un
+compte que pour un "mot de passe oublié" resté sans réponse — dans les deux cas c'est le même souci
+de délivrabilité, donc le même contournement.
+
 ### 8. Lancer l'application
 
 ```bash

@@ -11,7 +11,8 @@
     "emulators": "firebase emulators:start --import=./.emulator-data --export-on-exit",
     "seed": "node scripts/seed.js",
     "bootstrap-admin": "node scripts/bootstrap-admin.js",
-    "reset-firestore": "node scripts/reset-firestore.js"
+    "reset-firestore": "node scripts/reset-firestore.js",
+    "generate-reset-link": "node scripts/generate-reset-link.js"
   },
   "dependencies": {
     "firebase": "^11.0.2",
