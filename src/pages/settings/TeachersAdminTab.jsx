@@ -3,6 +3,7 @@ import {
   useTeachers,
   createTeacherAccount,
   setUserRole,
+  setTeacherActive,
   updateTeacherAssignments,
   findDuplicateTeacher,
 } from "../../lib/users";
@@ -30,6 +31,8 @@ export default function TeachersAdminTab({ isAdmin }) {
   const [editingId, setEditingId] = useState(null);
   const [roleError, setRoleError] = useState("");
   const [pendingRoleChange, setPendingRoleChange] = useState(null);
+  const [activeError, setActiveError] = useState("");
+  const [pendingActiveChange, setPendingActiveChange] = useState(null);
 
   async function handleCreate() {
     if (!displayName.trim() || !email.trim()) return;
@@ -37,6 +40,12 @@ export default function TeachersAdminTab({ isAdmin }) {
     const dupe = findDuplicateTeacher(teachers, displayName);
     if (dupe) {
       setError("Un enseignant portant un nom très proche existe déjà.");
+      return;
+    }
+    if (!email.trim().toLowerCase().endsWith("@gmail.com")) {
+      setError(
+        "L'adresse doit être une adresse Gmail (@gmail.com). Les autres domaines (académies, FAI comme numericable.fr) bloquent souvent l'e-mail automatique de définition du mot de passe.",
+      );
       return;
     }
     setCreating(true);
@@ -76,6 +85,19 @@ export default function TeachersAdminTab({ isAdmin }) {
     }
   }
 
+  async function handleToggleActive(t) {
+    setActiveError("");
+    try {
+      await setTeacherActive(t.id, t.active === false);
+    } catch (err) {
+      setActiveError(
+        err.code === "failed-precondition"
+          ? "Impossible de désactiver le dernier compte administrateur."
+          : "Le changement a échoué.",
+      );
+    }
+  }
+
   return (
     <div>
       {isAdmin && (
@@ -83,18 +105,20 @@ export default function TeachersAdminTab({ isAdmin }) {
           <div className={styles.formTitle}>Créer un compte</div>
           <p className={styles.formHint}>
             L'enseignant reçoit un lien pour définir son mot de passe. Un administrateur peut créer
-            des classes, des matières et corriger un appel verrouillé.
+            des classes, des matières et corriger un appel verrouillé.{" "}
+            <strong>L'adresse doit être une adresse Gmail</strong> (@gmail.com) — les autres
+            domaines (académies, FAI) bloquent souvent l'e-mail automatique de Firebase.
           </p>
           <div className={[styles.formGrid, styles.responsiveFormGrid].join(" ")} style={{ gridTemplateColumns: "1.2fr 1.2fr auto auto" }}>
             <Field label="Nom complet">
               <TextInput value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Hélène Vasseur" />
             </Field>
-            <Field label="Adresse e-mail">
+            <Field label="Adresse e-mail (Gmail)">
               <TextInput
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="h.vasseur@etablissement.fr"
+                placeholder="h.vasseur@gmail.com"
               />
             </Field>
             <Pill active={asAdmin} tone="green" onClick={() => setAsAdmin((v) => !v)}>
@@ -109,6 +133,7 @@ export default function TeachersAdminTab({ isAdmin }) {
       )}
 
       {roleError && <p style={{ marginBottom: 14, fontSize: 13, color: "var(--color-red)" }}>{roleError}</p>}
+      {activeError && <p style={{ marginBottom: 14, fontSize: 13, color: "var(--color-red)" }}>{activeError}</p>}
 
       <div style={{ display: "grid", gap: 12 }}>
         {teachers.map((t) => {
@@ -119,14 +144,21 @@ export default function TeachersAdminTab({ isAdmin }) {
           const validClassIds = (t.classIds || []).filter((id) => classes.some((c) => c.id === id));
           const validSubjectIds = (t.subjectIds || []).filter((id) => subjects.some((s) => s.id === id));
 
+          const isInactive = t.active === false;
+
           return (
-            <div key={t.id} className={["card", styles.groupCard].join(" ")}>
+            <div
+              key={t.id}
+              className={["card", styles.groupCard].join(" ")}
+              style={isInactive ? { opacity: 0.6 } : undefined}
+            >
               <div className={styles.groupHeader}>
                 <Avatar name={t.displayName} size={38} />
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize: 15, fontWeight: 600 }}>{t.displayName}</span>
                     {t.role === "admin" && <Badge tone="green">Admin</Badge>}
+                    {isInactive && <Badge tone="red">Désactivé</Badge>}
                   </div>
                   <div style={{ fontSize: 12, color: "var(--color-ink-soft)", marginTop: 3 }}>
                     {t.email} · {validSubjectIds.length} matière(s) · {validClassIds.length} classe(s)
@@ -142,6 +174,9 @@ export default function TeachersAdminTab({ isAdmin }) {
                       onClick={() => setEditingId(editingId === t.id ? null : t.id)}
                     >
                       Affectations
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setPendingActiveChange(t)}>
+                      {isInactive ? "Réactiver" : "Désactiver"}
                     </Button>
                   </>
                 )}
@@ -225,6 +260,30 @@ export default function TeachersAdminTab({ isAdmin }) {
           onConfirm={async () => {
             await handleToggleAdmin(pendingRoleChange);
             setPendingRoleChange(null);
+          }}
+        />
+      )}
+
+      {pendingActiveChange && (
+        <Modal
+          kicker="Accès à l'application"
+          title={
+            pendingActiveChange.active === false
+              ? `Réactiver ${pendingActiveChange.displayName} ?`
+              : `Désactiver ${pendingActiveChange.displayName} ?`
+          }
+          text={
+            pendingActiveChange.active === false
+              ? "Cette personne retrouve l'accès à l'application avec son compte existant."
+              : "Cette personne ne pourra plus se connecter à l'application. Son nom reste affiché tel quel sur les appels déjà enregistrés — rien n'est supprimé ni modifié dans l'historique."
+          }
+          confirmLabel="Confirmer"
+          cancelLabel="Annuler"
+          danger={pendingActiveChange.active !== false}
+          onCancel={() => setPendingActiveChange(null)}
+          onConfirm={async () => {
+            await handleToggleActive(pendingActiveChange);
+            setPendingActiveChange(null);
           }}
         />
       )}

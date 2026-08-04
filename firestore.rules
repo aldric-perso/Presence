@@ -16,8 +16,14 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    // Un profil désactivé (active == false) compte comme "pas de profil" : la personne garde son
+    // compte Authentication (son nom reste sur ses appels passés) mais perd tout accès aux
+    // données dès que ses règles sont évaluées — sans avoir besoin de désactiver son compte
+    // Authentication lui-même (ce qui exigerait l'Admin SDK, donc une Cloud Function).
     function hasProfile() {
-      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('active', true) != false;
     }
 
     function isAdmin() {

@@ -84,3 +84,23 @@ export async function setUserRole(uid, role) {
 export async function updateTeacherAssignments(uid, { classIds, subjectIds }) {
   await updateDoc(doc(db, "users", uid), { classIds, subjectIds });
 }
+
+/**
+ * Désactive/réactive un compte : une fois désactivé, la personne garde son compte Authentication
+ * et son nom reste attaché à ses appels passés (authorName y est recopié tel quel), mais elle perd
+ * tout accès à l'appli — les règles Firestore traitent un profil désactivé comme un profil absent
+ * (cf. hasProfile() dans firestore.rules). Aucun besoin de désactiver le compte Authentication
+ * lui-même (ce qui exigerait l'Admin SDK, donc une Cloud Function).
+ */
+export async function setTeacherActive(uid, active) {
+  if (!active) {
+    const admins = await getDocs(query(usersRef, where("role", "==", "admin")));
+    const isLastAdmin = admins.size === 1 && admins.docs[0].id === uid;
+    if (isLastAdmin) {
+      throw Object.assign(new Error("Impossible de désactiver le dernier compte administrateur."), {
+        code: "failed-precondition",
+      });
+    }
+  }
+  await updateDoc(doc(db, "users", uid), { active });
+}

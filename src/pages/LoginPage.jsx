@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../firebase";
 import Button from "../components/ui/Button";
@@ -19,6 +19,13 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (sessionStorage.getItem("presences:deactivated")) {
+      sessionStorage.removeItem("presences:deactivated");
+      setError("Ce compte a été désactivé. Contacte un administrateur.");
+    }
+  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();

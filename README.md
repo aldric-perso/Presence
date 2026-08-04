@@ -118,33 +118,48 @@ personne concernée pour qu'elle définisse son mot de passe et se connecte.
 Les comptes suivants se créent ensuite directement depuis l'application, dans *Paramètres →
 Enseignants & admins*.
 
-#### Si l'e-mail Firebase n'arrive pas (ac-*.fr, numericable.fr, ...)
+#### Pourquoi les comptes enseignants doivent utiliser une adresse Gmail
 
 Firebase Auth envoie les e-mails (création de compte, "mot de passe oublié") depuis un domaine
 générique (`noreply@<projet>.firebaseapp.com`). Ça passe très bien sur Gmail, mais certains domaines
 avec des filtres anti-spam stricts — académies (`ac-*.fr`), FAI comme numericable.fr — le bloquent
-ou le mettent en quarantaine, faute de SPF/DKIM propres à ce domaine. L'appli tente quand même
-l'envoi automatique à chaque fois (ça marche pour une partie des comptes), mais si un enseignant ne
-reçoit rien (après vérification des spams), génère-lui un lien manuellement :
+ou le mettent en quarantaine, faute de SPF/DKIM propres à ce domaine, et rien n'arrive jamais côté
+enseignant. Comme l'appli n'a volontairement aucun backend (pas de Cloud Functions, donc pas de
+moyen de générer un lien à afficher directement dans l'appli), la création de compte
+(*Paramètres → Enseignants*) exige désormais une adresse `@gmail.com` — la seule façon fiable
+d'éviter complètement ce problème de délivrabilité.
+
+Pour un compte déjà créé avec une autre adresse (avant cette règle) et qui ne reçoit rien, génère-lui
+un lien manuellement :
 
 ```bash
 npm run generate-reset-link -- email@ac-xxx.fr
 ```
 
 Le script affiche un lien de réinitialisation à usage unique, à transmettre à la personne par le
-canal de ton choix (ton propre e-mail, etc.). Ça fonctionne aussi bien juste après la création d'un
-compte que pour un "mot de passe oublié" resté sans réponse — dans les deux cas c'est le même souci
-de délivrabilité, donc le même contournement.
+canal de ton choix (ton propre e-mail, etc.).
 
 #### ⚠️ Ne jamais supprimer un enseignant, une matière ou une classe directement dans Firestore
 
-L'appli ne permet pas de vraiment supprimer un compte enseignant (seul le rôle/l'activation se
-changent depuis *Paramètres → Enseignants*) ni une classe (archivage uniquement). Une matière, elle,
-peut être retirée depuis l'appli — ce qui nettoie automatiquement les affectations des enseignants
-qui l'avaient cochée.
+**Un enseignant qui part** (départ définitif ou temporaire) : utilise le bouton *Désactiver* à côté
+de son nom dans *Paramètres → Enseignants*. Son compte ne peut alors plus se connecter, mais son nom
+reste affiché tel quel sur ses appels déjà enregistrés — rien n'est supprimé ni modifié dans
+l'historique. *Réactiver* lui redonne l'accès avec son compte existant. C'est l'action recommandée
+dans la quasi-totalité des cas ; les classes, elles, ne s'archivent que (jamais de suppression
+réelle), et une matière peut être retirée depuis l'appli, ce qui nettoie automatiquement les
+affectations des enseignants qui l'avaient cochée.
 
-Si tu supprimes un document directement dans la console Firestore au lieu de passer par l'appli, ça
-casse ce nettoyage :
+**Pour supprimer complètement un compte enseignant** (rare — seulement si tu veux aussi libérer son
+adresse e-mail pour un autre usage, ou effacer toute trace de son compte), utilise ce script plutôt
+que la console Firestore — il supprime le profil Firestore *et* le compte Authentication, dans le
+bon ordre, sans rien laisser d'orphelin (et refuse de supprimer le dernier compte admin) :
+
+```bash
+npm run delete-teacher -- email@etablissement.fr
+```
+
+Si un document a déjà été supprimé directement dans Firestore par le passé (au lieu de passer par
+l'appli ou ce script), ça casse le nettoyage attendu :
 - **Enseignant supprimé dans `users`** : son compte Authentication (identifiants de connexion)
   survit. Recréer la personne depuis l'appli échoue alors avec « Un compte existe déjà avec cette
   adresse e-mail ». Pour le débloquer :

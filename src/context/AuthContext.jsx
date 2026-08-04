@@ -29,7 +29,16 @@ export function AuthProvider({ children }) {
         setProfile(snap.exists() ? { id: snap.id, ...snap.data() } : null);
         setProfileLoading(false);
       },
-      () => setProfileLoading(false),
+      (err) => {
+        setProfileLoading(false);
+        // Un profil désactivé (cf. hasProfile() dans firestore.rules) rend ce document illisible
+        // par son propre titulaire : on le déconnecte proprement plutôt que de laisser l'appli
+        // tourner avec des écrans vides et des erreurs Firestore silencieuses en console.
+        if (err.code === "permission-denied") {
+          sessionStorage.setItem("presences:deactivated", "1");
+          firebaseSignOut(auth);
+        }
+      },
     );
   }, [user]);
 

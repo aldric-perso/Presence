@@ -13,7 +13,8 @@
     "bootstrap-admin": "node scripts/bootstrap-admin.js",
     "reset-firestore": "node scripts/reset-firestore.js",
     "generate-reset-link": "node scripts/generate-reset-link.js",
-    "delete-orphan-account": "node scripts/delete-orphan-account.js"
+    "delete-orphan-account": "node scripts/delete-orphan-account.js",
+    "delete-teacher": "node scripts/delete-teacher.js"
   },
   "dependencies": {
     "firebase": "^11.0.2",
