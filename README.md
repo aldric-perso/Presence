@@ -141,6 +141,15 @@ Puis dans `.env.local`, passer `VITE_USE_EMULATORS=true` avant de lancer `npm ru
 
 ## CI/CD (GitHub Actions)
 
+> **⚠️ État actuel (2026-08) : le déploiement automatique GitHub → Firebase ne fonctionne pas.**
+> Après chaque `git push` sur `main`, il faut donc déployer manuellement en local :
+> ```bash
+> npm run build
+> firebase deploy --only hosting,firestore --project feuille-de-presence-5c35a
+> ```
+> (nécessite d'être connecté avec `firebase login` sur le compte ayant accès au projet). Ne pas
+> considérer un push seul comme suffisant tant que ce point n'est pas rouvert/corrigé.
+
 Le workflow `.github/workflows/deploy.yml` construit et déploie l'application (Hosting + règles
 Firestore) à chaque push sur `main`. Secrets à configurer dans *Settings → Secrets and variables →
 Actions* du repo GitHub :
