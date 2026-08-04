@@ -104,8 +104,9 @@ export default function TeachersAdminTab({ isAdmin }) {
         <div className={["card", styles.formCard].join(" ")}>
           <div className={styles.formTitle}>Créer un compte</div>
           <p className={styles.formHint}>
-            L'enseignant reçoit un lien pour définir son mot de passe. Un administrateur peut créer
-            des classes, des matières et corriger un appel verrouillé.{" "}
+            L'enseignant reçoit un lien pour définir son mot de passe (pense à lui dire de vérifier
+            ses spams, l'e-mail y atterrit parfois). Un administrateur peut créer des classes, des
+            matières et corriger un appel verrouillé.{" "}
             <strong>L'adresse doit être une adresse Gmail</strong> (@gmail.com) — les autres
             domaines (académies, FAI) bloquent souvent l'e-mail automatique de Firebase.
           </p>
@@ -234,7 +235,7 @@ export default function TeachersAdminTab({ isAdmin }) {
         <Modal
           kicker="Compte créé"
           title={`Bienvenue à ${createdInfo.displayName}`}
-          text={`Un e-mail vient d'être envoyé à ${createdInfo.email} pour définir son mot de passe et se connecter.`}
+          text={`Un e-mail vient d'être envoyé à ${createdInfo.email} pour définir son mot de passe et se connecter. Pense à lui dire de vérifier ses spams s'il ne le voit pas arriver.`}
           cancelLabel="Fermer"
           onCancel={() => setCreatedInfo(null)}
         />
