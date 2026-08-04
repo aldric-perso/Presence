@@ -168,7 +168,8 @@ Actions* du repo GitHub :
 
 *Paramètres → Élèves* permet d'exporter la liste actuelle en `.xlsx` et d'en importer une nouvelle
 version. Colonnes attendues à l'import : **Prénom**, **Nom**, **Classe** (doit correspondre à une
-classe existante), **Arrivé le** et **Parti le** (optionnelles, formats `JJ/MM/AAAA` ou date Excel).
+classe existante), **Arrivé(e) le** et **Parti(e) le** (optionnelles, formats `JJ/MM/AAAA` ou date
+Excel).
 
 Avant toute écriture, un écran de revue présente le diff face à la base actuelle :
 - un nom absent de la base → nouvel élève (arrivée = date de l'import si non précisée) ;

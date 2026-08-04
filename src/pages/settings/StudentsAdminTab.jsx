@@ -42,6 +42,7 @@ export default function StudentsAdminTab({ isAdmin }) {
   const { data: records } = useAllRecords();
 
   const [search, setSearch] = useState("");
+  const [showDeparted, setShowDeparted] = useState(false);
   const [sort, setSort] = useState({ key: null, dir: "asc" });
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [message, setMessage] = useState("");
@@ -55,9 +56,12 @@ export default function StudentsAdminTab({ isAdmin }) {
 
   const filteredStudents = useMemo(() => {
     const q = normalize(search.trim());
-    if (!q) return students;
-    return students.filter((s) => normalize(s.fullName).includes(q));
-  }, [students, search]);
+    return students.filter((s) => {
+      if (!showDeparted && s.departedAt) return false;
+      if (q && !normalize(s.fullName).includes(q)) return false;
+      return true;
+    });
+  }, [students, search, showDeparted]);
 
   const sortedStudents = useMemo(() => {
     if (!sort.key) return filteredStudents;
@@ -110,7 +114,7 @@ export default function StudentsAdminTab({ isAdmin }) {
           <div style={{ flex: 1 }}>
             <div className={styles.formTitle}>Import / export Excel</div>
             <p className={styles.formHint} style={{ margin: 0 }}>
-              Le fichier attend les colonnes Prénom, Nom, Classe, Arrivé le, Parti le. Les nouveaux
+              Le fichier attend les colonnes Prénom, Nom, Classe, Arrivé(e) le, Parti(e) le. Les nouveaux
               noms sont ajoutés, les changements de classe ambigus te sont demandés, et tout élève
               absent du fichier est considéré parti à la date de l'import.
             </p>
@@ -140,14 +144,18 @@ export default function StudentsAdminTab({ isAdmin }) {
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Rechercher un élève…"
         />
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, marginTop: 10 }}>
+          <input type="checkbox" checked={showDeparted} onChange={(e) => setShowDeparted(e.target.checked)} />
+          Afficher les élèves parti(e)s
+        </label>
       </div>
 
       <div className={["card", styles.listCard].join(" ")}>
         <div className={[styles.tableHead, styles.tableWide].join(" ")} style={{ gridTemplateColumns: ROW_COLUMNS }}>
           <SortableHeader label="Élève" sortKey="name" sort={sort} onSort={toggleSort} />
           <SortableHeader label="Classe" sortKey="class" sort={sort} onSort={toggleSort} />
-          <SortableHeader label="Arrivé le" sortKey="arrivedAt" sort={sort} onSort={toggleSort} />
-          <SortableHeader label="Parti le" sortKey="departedAt" sort={sort} onSort={toggleSort} />
+          <SortableHeader label="Arrivé(e) le" sortKey="arrivedAt" sort={sort} onSort={toggleSort} />
+          <SortableHeader label="Parti(e) le" sortKey="departedAt" sort={sort} onSort={toggleSort} />
           <span></span>
         </div>
         {sortedStudents.map((s) => (

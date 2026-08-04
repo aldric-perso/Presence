@@ -10,8 +10,8 @@ const COLUMNS = {
   firstName: ["Prénom", "Prenom"],
   lastName: ["Nom"],
   className: ["Classe"],
-  arrivedAt: ["Arrivé le", "Arrive le"],
-  departedAt: ["Parti le"],
+  arrivedAt: ["Arrivé(e) le", "Arrivé le", "Arrive le"],
+  departedAt: ["Parti(e) le", "Parti le"],
 };
 
 function pick(row, keys) {
@@ -200,8 +200,8 @@ export async function exportStudentsWorkbook(students, classes) {
     Prénom: s.firstName,
     Nom: s.lastName,
     Classe: classById.get(s.classId)?.name || "",
-    "Arrivé le": isoToDate(s.arrivedAt),
-    "Parti le": isoToDate(s.departedAt),
+    "Arrivé(e) le": isoToDate(s.arrivedAt),
+    "Parti(e) le": isoToDate(s.departedAt),
   }));
   const sheet = XLSX.utils.json_to_sheet(rows, { cellDates: true });
   sheet["!cols"] = [{ wch: 16 }, { wch: 16 }, { wch: 22 }, { wch: 14 }, { wch: 14 }];

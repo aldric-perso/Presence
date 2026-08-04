@@ -15,7 +15,6 @@ export default function ScheduleTab({ isAdmin }) {
 
   return (
     <div style={{ display: "grid", gap: 20 }}>
-      <ThresholdSection isAdmin={isAdmin} settings={settings} />
       <TimeSlotsSection isAdmin={isAdmin} timeSlots={timeSlots} />
       <ReasonsSection
         isAdmin={isAdmin}
@@ -34,6 +33,7 @@ export default function ScheduleTab({ isAdmin }) {
         placeholder="Ex. Transport en retard"
       />
       <MinuteChoicesSection isAdmin={isAdmin} choices={settings.lateMinuteChoices} />
+      <ThresholdSection isAdmin={isAdmin} settings={settings} />
     </div>
   );
 }

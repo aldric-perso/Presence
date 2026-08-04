@@ -24,6 +24,7 @@ export default function StudentsPage() {
   const [selectedId, setSelectedId] = useState(() => params.get("id"));
   const [view, setView] = useState("fiche");
   const [search, setSearch] = useState("");
+  const [showDeparted, setShowDeparted] = useState(false);
   const [mobileShowDetail, setMobileShowDetail] = useState(() => !!params.get("id"));
 
   function selectStudent(id) {
@@ -46,9 +47,12 @@ export default function StudentsPage() {
 
   const filteredStats = useMemo(() => {
     const q = normalize(search.trim());
-    if (!q) return stats;
-    return stats.filter((s) => normalize(s.fullName).includes(q));
-  }, [stats, search]);
+    return stats.filter((s) => {
+      if (!showDeparted && s.departedAt) return false;
+      if (q && !normalize(s.fullName).includes(q)) return false;
+      return true;
+    });
+  }, [stats, search, showDeparted]);
 
   const selected = stats.find((s) => s.id === selectedId) || stats[0];
   const loading = studentsLoading || recordsLoading;
@@ -92,6 +96,10 @@ export default function StudentsPage() {
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Rechercher un élève…"
               />
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, marginTop: 10 }}>
+                <input type="checkbox" checked={showDeparted} onChange={(e) => setShowDeparted(e.target.checked)} />
+                Afficher les élèves parti(e)s
+              </label>
             </div>
             <div className={styles.listHeader}>{filteredStats.length} élèves · triés par présence</div>
             <div className={styles.listScroll}>
