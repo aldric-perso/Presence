@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import { STATUS } from "./attendance";
+import { SESSION_MINUTES } from "./subjects";
 import { formatDateShort } from "./dates";
 
 const HEADER_FILL = { type: "pattern", pattern: "solid", fgColor: { argb: "FFCADFFF" } };
@@ -82,7 +83,9 @@ function writeStudentBlock(sheet, startRow, { student, className, subjects, hour
   const firstDataRow = row;
   for (const subject of subjects) {
     const { due, seen } = hours.get(subject.id) || { due: 0, seen: 0 };
-    const weeklyDue = weeks > 0 ? due / 60 / weeks : 0;
+    // Convention de l'établissement : une séance de 50 min compte pour 1 "heure" de programme,
+    // pas 50/60e d'heure réelle — d'où la division par SESSION_MINUTES et non par 60.
+    const weeklyDue = weeks > 0 ? due / SESSION_MINUTES / weeks : 0;
     const realRate = due > 0 ? seen / due : 0;
 
     const r = sheet.getRow(row);
