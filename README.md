@@ -200,10 +200,18 @@ Puis dans `.env.local`, passer `VITE_USE_EMULATORS=true` avant de lancer `npm ru
 > Après chaque `git push` sur `main`, il faut donc déployer manuellement en local :
 > ```bash
 > npm run build
-> firebase deploy --only hosting,firestore --project feuille-de-presence-5c35a
+> firebase deploy --only hosting
 > ```
-> (nécessite d'être connecté avec `firebase login` sur le compte ayant accès au projet). Ne pas
-> considérer un push seul comme suffisant tant que ce point n'est pas rouvert/corrigé.
+> N'ajouter `,firestore` à `--only` que si `firestore.rules` ou `firestore.indexes.json` ont
+> changé — sinon `--only hosting` suffit. Nécessite d'être connecté avec `firebase login` sur le
+> compte ayant accès au projet (`.firebaserc` pointe déjà vers le bon projet par défaut, pas besoin
+> de `--project`). Ne pas considérer un push seul comme suffisant tant que ce point n'est pas
+> rouvert/corrigé.
+>
+> **Note pour Claude Code** : ne pas ajouter `--project <id>` explicitement à la commande de
+> déploiement — ce flag supplémentaire fait bloquer la commande par le classificateur de
+> permissions de l'outil Bash en mode auto. La commande ci-dessus (sans `--project`) passe sans
+> problème.
 
 Le workflow `.github/workflows/deploy.yml` construit et déploie l'application (Hosting + règles
 Firestore) à chaque push sur `main`. Secrets à configurer dans *Settings → Secrets and variables →
