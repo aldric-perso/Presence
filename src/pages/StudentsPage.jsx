@@ -2,9 +2,11 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useStudents } from "../lib/students";
 import { useClasses } from "../lib/classes";
-import { useAllRecords, computeStudentStats, exportStudentsCsv } from "../lib/attendance";
+import { useSubjects } from "../lib/subjects";
+import { useAllRecords, computeStudentStats } from "../lib/attendance";
+import { exportStudentTrackingExcel } from "../lib/studentTrackingExport";
 import { useSettings, buildReasonsLookup } from "../lib/settings";
-import { formatDateShort, todayISO } from "../lib/dates";
+import { formatDateShort, todayISO, schoolYearStartISO } from "../lib/dates";
 import { normalize } from "../lib/ids";
 import Button from "../components/ui/Button";
 import Badge from "../components/ui/Badge";
@@ -16,15 +18,26 @@ import styles from "./StudentsPage.module.css";
 export default function StudentsPage() {
   const { data: students, loading: studentsLoading } = useStudents();
   const { data: classes } = useClasses({ includeArchived: true });
+  const { data: subjects } = useSubjects();
   const { data: records, loading: recordsLoading } = useAllRecords();
   const { settings } = useSettings();
   const [params] = useSearchParams();
 
   const [selectedId, setSelectedId] = useState(() => params.get("id"));
   const [search, setSearch] = useState("");
-  const [startDate, setStartDate] = useState(() => todayISO());
+  const [startDate, setStartDate] = useState(() => schoolYearStartISO());
   const [endDate, setEndDate] = useState(() => todayISO());
   const [mobileShowDetail, setMobileShowDetail] = useState(() => !!params.get("id"));
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExportExcel() {
+    setExporting(true);
+    try {
+      await exportStudentTrackingExcel({ students, classes, subjects, records, startDate, endDate });
+    } finally {
+      setExporting(false);
+    }
+  }
 
   function selectStudent(id) {
     setSelectedId(id);
@@ -75,10 +88,10 @@ export default function StudentsPage() {
         <Button
           variant="ghost"
           className={styles.desktopOnly}
-          onClick={() => exportStudentsCsv(filteredStats)}
-          disabled={!filteredStats.length}
+          onClick={handleExportExcel}
+          disabled={!students.length || !subjects.length || exporting}
         >
-          Exporter en CSV
+          {exporting ? "Export en cours…" : "Exporter en Excel"}
         </Button>
       </div>
 
@@ -167,13 +180,29 @@ function StudentSheet({ student: s }) {
               <div className={styles.ficheStatValue} style={{ color: "var(--color-red)" }}>
                 {s.nbAbs}
               </div>
-              <div className={styles.ficheStatLabel}>absences</div>
+              <div className={styles.ficheStatLabel}>
+                absences
+                {s.nbAbs > 0 && (
+                  <span className={styles.ficheStatBreakdown}>
+                    {s.nbAbsJustifiee} justifiée{s.nbAbsJustifiee > 1 ? "s" : ""} · {s.nbAbsNonJustifiee} non
+                    justifiée{s.nbAbsNonJustifiee > 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
             </div>
             <div>
               <div className={styles.ficheStatValue} style={{ color: "var(--color-amber)" }}>
                 {s.nbRet}
               </div>
-              <div className={styles.ficheStatLabel}>retards</div>
+              <div className={styles.ficheStatLabel}>
+                retards
+                {s.nbRet > 0 && (
+                  <span className={styles.ficheStatBreakdown}>
+                    {s.nbRetJustifie} justifié{s.nbRetJustifie > 1 ? "s" : ""} · {s.nbRetNonJustifie} non
+                    justifié{s.nbRetNonJustifie > 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
             </div>
             <div>
               <div className={styles.ficheStatValue} style={{ color: "var(--color-teal)" }}>

@@ -214,7 +214,20 @@ export function computeStudentStats({ students, records, seuil, reasonsLookup = 
   const byStudent = new Map(
     students.map((s) => [
       s.id,
-      { student: s, minutesDue: 0, minutesSeen: 0, nbAbs: 0, nbRet: 0, nbPartiel: 0, bySubject: new Map(), absences: [] },
+      {
+        student: s,
+        minutesDue: 0,
+        minutesSeen: 0,
+        nbAbs: 0,
+        nbAbsJustifiee: 0,
+        nbAbsNonJustifiee: 0,
+        nbRet: 0,
+        nbRetJustifie: 0,
+        nbRetNonJustifie: 0,
+        nbPartiel: 0,
+        bySubject: new Map(),
+        absences: [],
+      },
     ]),
   );
 
@@ -240,8 +253,17 @@ export function computeStudentStats({ students, records, seuil, reasonsLookup = 
 
       agg.minutesDue += due;
       agg.minutesSeen += seen;
-      if (entry.status === STATUS.ABSENT) agg.nbAbs += 1;
-      if (entry.status === STATUS.LATE) agg.nbRet += 1;
+      const justified = reasonsLookup.get(entry.reason) ?? false;
+      if (entry.status === STATUS.ABSENT) {
+        agg.nbAbs += 1;
+        if (justified) agg.nbAbsJustifiee += 1;
+        else agg.nbAbsNonJustifiee += 1;
+      }
+      if (entry.status === STATUS.LATE) {
+        agg.nbRet += 1;
+        if (justified) agg.nbRetJustifie += 1;
+        else agg.nbRetNonJustifie += 1;
+      }
       if (entry.status === STATUS.PARTIAL) agg.nbPartiel += 1;
 
       if (entry.status === STATUS.LATE || entry.status === STATUS.ABSENT) {
@@ -250,7 +272,7 @@ export function computeStudentStats({ students, records, seuil, reasonsLookup = 
           subject: record.subjectName || "—",
           reason: entry.reason || "—",
           minutesMissed: entry.status === STATUS.ABSENT ? sessionMinutes : entry.minutesMissed || 0,
-          justified: reasonsLookup.get(entry.reason) ?? false,
+          justified,
         });
       }
 
@@ -275,7 +297,11 @@ export function computeStudentStats({ students, records, seuil, reasonsLookup = 
       pct,
       color: colorForPct(pct, seuil),
       nbAbs: agg.nbAbs,
+      nbAbsJustifiee: agg.nbAbsJustifiee,
+      nbAbsNonJustifiee: agg.nbAbsNonJustifiee,
       nbRet: agg.nbRet,
+      nbRetJustifie: agg.nbRetJustifie,
+      nbRetNonJustifie: agg.nbRetNonJustifie,
       nbPartiel: agg.nbPartiel,
       absences: agg.absences.slice(0, 8),
       subjects: [...agg.bySubject.values()].map((s) => ({
@@ -337,22 +363,4 @@ export async function renameReasonInRecords({ oldLabel, newLabel, records }) {
   }
 
   return { recordsUpdated: affected.length };
-}
-
-/** Un ligne par élève et par matière : minutes dues, minutes vues, taux de présence. */
-export function exportStudentsCsv(studentsStats) {
-  const header = ["Élève", "Classe", "Matière", "Séances", "Minutes dues", "Minutes vues", "Présence (%)"];
-  const rows = studentsStats.flatMap((s) =>
-    s.subjects.map((subj) => [s.fullName, s.className || "", subj.name, subj.sessions, subj.due, subj.seen, subj.pct]),
-  );
-  const csv = [header, ...rows]
-    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(";"))
-    .join("\n");
-  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `presences_${todayISO()}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
 }

@@ -12,6 +12,13 @@ export function isoDaysAgo(n) {
   return new Date(d - tz).toISOString().slice(0, 10);
 }
 
+/** 1er septembre de l'année scolaire en cours (année précédente tant qu'on n'a pas atteint septembre). */
+export function schoolYearStartISO() {
+  const d = new Date();
+  const year = d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1;
+  return `${year}-09-01`;
+}
+
 /** "Lundi 2 février 2026" à partir d'une date ISO YYYY-MM-DD. */
 export function formatDateLabel(isoDate) {
   const d = new Date(`${isoDate}T00:00:00`);
