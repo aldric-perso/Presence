@@ -36,7 +36,7 @@ service cloud.firestore {
     function myEmail() {
       return isSignedIn() && request.auth.token.email != null
         ? request.auth.token.email.lower()
-        : null;
+        : '';
     }
 
     function invitationFor(email) {
@@ -85,7 +85,7 @@ service cloud.firestore {
         request.resource.data.role in ['admin', 'teacher'] &&
         request.resource.data.keys().hasAll(['displayName', 'email', 'role', 'classIds', 'subjectIds', 'active'])
       ) || (
-        request.auth.uid == uid && myEmail() != null &&
+        request.auth.uid == uid && myEmail() != '' &&
         request.auth.token.email_verified == true &&
         exists(/databases/$(database)/documents/invitations/$(myEmail())) &&
         request.resource.data.displayName == invitationFor(myEmail()).displayName &&
