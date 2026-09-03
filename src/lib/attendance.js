@@ -239,9 +239,7 @@ export function computeStudentStats({ students, records, seuil, reasonsLookup = 
       const agg = byStudent.get(entry.studentId);
       if (!agg) continue;
 
-      // Une présence partielle est un aménagement prévu : elle compte pour 100% de présence sur
-      // le temps réellement dû (due=seen=minutesPresent), pas comme un manque sur la séance entière.
-      const due = entry.status === STATUS.PARTIAL ? entry.minutesPresent || 0 : sessionMinutes;
+      const due = sessionMinutes;
       const seen =
         entry.status === STATUS.PRESENT
           ? sessionMinutes

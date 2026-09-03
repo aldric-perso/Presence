@@ -37,7 +37,7 @@ function aggregateSubjectHours({ students, subjects, records }) {
       const subjectAgg = byStudent.get(entry.studentId)?.get(record.subjectId);
       if (!subjectAgg) continue;
 
-      const due = entry.status === STATUS.PARTIAL ? entry.minutesPresent || 0 : sessionMinutes;
+      const due = sessionMinutes;
       const seen =
         entry.status === STATUS.PRESENT
           ? sessionMinutes
