@@ -63,14 +63,13 @@ export default function StudentsPage() {
     }).sort((a, b) => a.pct - b.pct);
   }, [students, classById, periodRecords, settings]);
 
+  const trackedStats = useMemo(() => stats.filter((s) => s.subjects.length > 0), [stats]);
+
   const filteredStats = useMemo(() => {
     const q = normalize(search.trim());
-    return stats.filter((s) => {
-      if (s.subjects.length === 0) return false;
-      if (q && !normalize(s.fullName).includes(q)) return false;
-      return true;
-    });
-  }, [stats, search]);
+    if (!q) return trackedStats;
+    return trackedStats.filter((s) => normalize(s.fullName).includes(q));
+  }, [trackedStats, search]);
 
   const selected = stats.find((s) => s.id === selectedId) || filteredStats[0];
   const loading = studentsLoading || recordsLoading;
@@ -104,7 +103,7 @@ export default function StudentsPage() {
         </Field>
       </div>
 
-      {!loading && filteredStats.length === 0 ? (
+      {!loading && trackedStats.length === 0 ? (
         <div className="card" style={{ padding: 48, textAlign: "center", color: "var(--color-muted)" }}>
           {students.length === 0
             ? "Aucun élève enregistré pour le moment. Ajoute des élèves depuis Paramètres → Élèves."
@@ -127,24 +126,30 @@ export default function StudentsPage() {
               />
             </div>
             <div className={styles.listHeader}>{filteredStats.length} élèves · triés par présence</div>
-            <div className={styles.listScroll}>
-              {filteredStats.map((s) => (
-                <button
-                  key={s.id}
-                  className={[styles.listItem, s.id === selected?.id ? styles.selected : ""].join(" ")}
-                  onClick={() => selectStudent(s.id)}
-                >
-                  <div style={{ flex: 1 }}>
-                    <div className={styles.listItemName}>{s.fullName}</div>
-                    <div className={styles.listItemMeta}>
-                      {s.className}
-                      {s.departedAt && " · parti"}
+            {filteredStats.length === 0 ? (
+              <div style={{ padding: "24px 4px", textAlign: "center", color: "var(--color-muted)", fontSize: 13 }}>
+                Aucun élève ne correspond à « {search.trim()} ».
+              </div>
+            ) : (
+              <div className={styles.listScroll}>
+                {filteredStats.map((s) => (
+                  <button
+                    key={s.id}
+                    className={[styles.listItem, s.id === selected?.id ? styles.selected : ""].join(" ")}
+                    onClick={() => selectStudent(s.id)}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div className={styles.listItemName}>{s.fullName}</div>
+                      <div className={styles.listItemMeta}>
+                        {s.className}
+                        {s.departedAt && " · parti"}
+                      </div>
                     </div>
-                  </div>
-                  <div className={["tabular", styles.listItemPct].join(" ")}>{s.pct}%</div>
-                </button>
-              ))}
-            </div>
+                    <div className={["tabular", styles.listItemPct].join(" ")}>{s.pct}%</div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className={!mobileShowDetail ? styles.mobileHide : ""}>
