@@ -30,6 +30,19 @@ service cloud.firestore {
       return hasProfile() && myProfile().role == 'admin';
     }
 
+    // Adresse e-mail Google de l'utilisateur connecté, normalisée en minuscules — c'est aussi
+    // l'ID des documents invitations/{email}, ce qui permet à une personne invitée de lire/récla-
+    // mer uniquement SON invitation.
+    function myEmail() {
+      return isSignedIn() && request.auth.token.email != null
+        ? request.auth.token.email.lower()
+        : null;
+    }
+
+    function invitationFor(email) {
+      return get(/databases/$(database)/documents/invitations/$(email)).data;
+    }
+
     // --- Fenêtre de modification d'un appel (correction ou suppression douce) ---
     // Passé ce délai depuis la date de la séance (pas la date de saisie), seul un admin peut
     // encore corriger ou supprimer l'appel ; l'auteur seul ne le peut plus.
@@ -46,15 +59,42 @@ service cloud.firestore {
       return isAdmin() || (data.authorId == request.auth.uid && withinEditWindow(data));
     }
 
+    // --- Invitations en attente ---
+    // Un admin invite une personne par e-mail (ID du document = e-mail en minuscules) sans jamais
+    // créer de compte Authentication ni envoyer de mail : aucune adresse Gmail requise, aucun
+    // problème de délivrabilité. La personne invitée réclame son invitation elle-même à sa
+    // première connexion avec "Se connecter avec Google" (cf. claimInvitation dans
+    // src/lib/users.js), ce qui crée son profil users/{uid} puis supprime l'invitation.
+    match /invitations/{email} {
+      allow read, delete: if isAdmin() || myEmail() == email;
+      allow create, update: if isAdmin() &&
+        request.resource.data.role in ['admin', 'teacher'] &&
+        request.resource.data.keys().hasAll(['displayName', 'email', 'role', 'classIds', 'subjectIds']);
+    }
+
     // --- Comptes enseignants / admins ---
-    // Création : un admin authentifié crée le profil juste après avoir créé le compte Auth
-    // (via une instance Firebase secondaire côté client, cf. src/lib/users.js). L'auteur de
-    // l'écriture est donc bien l'admin, même si le document créé porte l'UID du nouveau compte.
     match /users/{uid} {
       allow read: if hasProfile();
-      allow create: if isAdmin() &&
+      // Deux façons de créer un profil :
+      // - un admin le crée directement (rare désormais, cf. scripts) ;
+      // - la personne invitée réclame elle-même son invitation à sa première connexion Google :
+      //   les champs écrits doivent correspondre exactement à ceux de son invitation, pour
+      //   qu'elle ne puisse pas s'auto-attribuer un rôle ou des affectations différents.
+      allow create: if (
+        isAdmin() &&
         request.resource.data.role in ['admin', 'teacher'] &&
-        request.resource.data.keys().hasAll(['displayName', 'email', 'role', 'classIds', 'subjectIds', 'active']);
+        request.resource.data.keys().hasAll(['displayName', 'email', 'role', 'classIds', 'subjectIds', 'active'])
+      ) || (
+        request.auth.uid == uid && myEmail() != null &&
+        request.auth.token.email_verified == true &&
+        exists(/databases/$(database)/documents/invitations/$(myEmail())) &&
+        request.resource.data.displayName == invitationFor(myEmail()).displayName &&
+        request.resource.data.email == invitationFor(myEmail()).email &&
+        request.resource.data.role == invitationFor(myEmail()).role &&
+        request.resource.data.classIds == invitationFor(myEmail()).classIds &&
+        request.resource.data.subjectIds == invitationFor(myEmail()).subjectIds &&
+        request.resource.data.active == true
+      );
       allow update: if isAdmin() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['classIds', 'subjectIds', 'role', 'active']);
       allow delete: if false;

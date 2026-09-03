@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import { initializeApp, deleteApp } from "firebase/app";
-import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut } from "firebase/auth";
 import {
   collection,
+  deleteDoc,
   doc,
+  getDoc,
   getDocs,
   orderBy,
   query,
@@ -12,14 +12,20 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { app, db } from "../firebase";
+import { db } from "../firebase";
 import { useCollection } from "./useCollection";
 import { normalize, squeezeSpaces } from "./ids";
 
 const usersRef = collection(db, "users");
+const invitationsRef = collection(db, "invitations");
 
 export function useTeachers() {
   const q = useMemo(() => query(usersRef, orderBy("displayName")), []);
+  return useCollection(q);
+}
+
+export function useInvitations() {
+  const q = useMemo(() => query(invitationsRef, orderBy("displayName")), []);
   return useCollection(q);
 }
 
@@ -28,40 +34,55 @@ export function findDuplicateTeacher(teachers, displayName) {
   return teachers.find((t) => normalize(t.displayName) === key) || null;
 }
 
-function randomPassword() {
-  const bytes = crypto.getRandomValues(new Uint8Array(24));
-  return btoa(String.fromCharCode(...bytes)).replace(/[+/=]/g, "");
+function invitationId(email) {
+  return email.trim().toLowerCase();
 }
 
 /**
- * Crée le compte Auth + le profil Firestore, et envoie un e-mail de réinitialisation de mot de
- * passe (gratuit, géré nativement par Firebase Auth). Utilise une instance Firebase secondaire
- * pour que la création du compte ne déconnecte pas l'administrateur en cours de session — aucune
- * Cloud Function n'est nécessaire (compatible plan Spark gratuit).
+ * Invite une personne par e-mail : aucun compte Authentication n'est créé et aucun mail n'est
+ * envoyé — la personne réclame elle-même cette invitation en se connectant avec "Se connecter
+ * avec Google" en utilisant cette adresse (cf. claimInvitation). Ça évite complètement le
+ * problème de délivrabilité des e-mails Firebase Auth (plus besoin d'exiger une adresse Gmail).
  */
-export async function createTeacherAccount({ displayName, email, role, classIds = [], subjectIds = [] }) {
-  const secondaryApp = initializeApp(app.options, `secondary-${Date.now()}`);
-  const secondaryAuth = getAuth(secondaryApp);
-  try {
-    const credential = await createUserWithEmailAndPassword(secondaryAuth, email.trim(), randomPassword());
+export async function createTeacherInvitation({ displayName, email, role, classIds = [], subjectIds = [] }) {
+  await setDoc(doc(db, "invitations", invitationId(email)), {
+    displayName: squeezeSpaces(displayName),
+    email: email.trim(),
+    role,
+    classIds,
+    subjectIds,
+    createdAt: serverTimestamp(),
+  });
+}
 
-    await setDoc(doc(db, "users", credential.user.uid), {
-      displayName: squeezeSpaces(displayName),
-      email: email.trim(),
-      role,
-      classIds,
-      subjectIds,
-      active: true,
-      createdAt: serverTimestamp(),
-    });
+export async function cancelInvitation(id) {
+  await deleteDoc(doc(db, "invitations", id));
+}
 
-    await sendPasswordResetEmail(secondaryAuth, email.trim());
+/**
+ * Appelée juste après une première connexion Google sans profil users/{uid} : cherche une
+ * invitation à l'adresse e-mail du compte connecté et, si elle existe, crée le profil à partir de
+ * ses données puis supprime l'invitation. Retourne true si une invitation a été réclamée.
+ */
+export async function claimInvitation(user) {
+  if (!user.email) return false;
+  const invRef = doc(db, "invitations", invitationId(user.email));
+  const invSnap = await getDoc(invRef);
+  if (!invSnap.exists()) return false;
+  const inv = invSnap.data();
 
-    return { uid: credential.user.uid };
-  } finally {
-    await signOut(secondaryAuth).catch(() => {});
-    await deleteApp(secondaryApp);
-  }
+  await setDoc(doc(db, "users", user.uid), {
+    displayName: inv.displayName,
+    email: inv.email,
+    role: inv.role,
+    classIds: inv.classIds || [],
+    subjectIds: inv.subjectIds || [],
+    active: true,
+    createdAt: serverTimestamp(),
+  });
+
+  await deleteDoc(invRef).catch(() => {});
+  return true;
 }
 
 /**

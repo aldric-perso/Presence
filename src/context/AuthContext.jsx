@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../firebase";
+import { claimInvitation } from "../lib/users";
 
 const AuthContext = createContext(null);
 
@@ -22,24 +23,45 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
+    let unsubscribe = () => {};
     setProfileLoading(true);
-    return onSnapshot(
-      doc(db, "users", user.uid),
-      (snap) => {
-        setProfile(snap.exists() ? { id: snap.id, ...snap.data() } : null);
-        setProfileLoading(false);
-      },
-      (err) => {
-        setProfileLoading(false);
-        // Un profil désactivé (cf. hasProfile() dans firestore.rules) rend ce document illisible
-        // par son propre titulaire : on le déconnecte proprement plutôt que de laisser l'appli
-        // tourner avec des écrans vides et des erreurs Firestore silencieuses en console.
-        if (err.code === "permission-denied") {
-          sessionStorage.setItem("presences:deactivated", "1");
+
+    function subscribe() {
+      unsubscribe = onSnapshot(
+        doc(db, "users", user.uid),
+        (snap) => {
+          setProfile(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+          setProfileLoading(false);
+        },
+        async (err) => {
+          // Un profil désactivé, ou pas encore réclamé (cf. hasProfile() dans firestore.rules),
+          // rend ce document illisible par son propre titulaire. Avant de conclure à un accès
+          // refusé, on tente de réclamer une invitation en attente à cette adresse (première
+          // connexion Google) : si ça réussit, le profil vient d'être créé, on se réabonne pour
+          // le lire normalement plutôt que de déconnecter la personne qu'on vient d'autoriser.
+          if (err.code !== "permission-denied") {
+            setProfileLoading(false);
+            return;
+          }
+          const claimed = await claimInvitation(user).catch(() => false);
+          if (cancelled) return;
+          if (claimed) {
+            subscribe();
+            return;
+          }
+          setProfileLoading(false);
+          sessionStorage.setItem("presences:no-access", "1");
           firebaseSignOut(auth);
-        }
-      },
-    );
+        },
+      );
+    }
+
+    subscribe();
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [user]);
 
   const value = useMemo(

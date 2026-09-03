@@ -12,9 +12,9 @@ conservée dans `Downloads/Application de feuille de présences/` à titre de r�
 
 - **Frontend** : React 18 + Vite, React Router, CSS Modules (aucun framework CSS — design system
   maison proche de la maquette).
-- **Backend** : Firebase — Firestore (données), Authentication (email + mot de passe), Hosting
-  (déploiement statique). **Aucune Cloud Function** : tout fonctionne sur le plan gratuit **Spark**,
-  aucune carte bancaire à renseigner.
+- **Backend** : Firebase — Firestore (données), Authentication (Google + e-mail/mot de passe pour
+  les comptes créés avant l'invitation par Google), Hosting (déploiement statique). **Aucune Cloud
+  Function** : tout fonctionne sur le plan gratuit **Spark**, aucune carte bancaire à renseigner.
 - **CI/CD** : GitHub Actions, build + déploiement automatique sur `main`.
 
 ## Comment la sécurité fonctionne sans Cloud Functions
@@ -25,11 +25,16 @@ donc entièrement portée par `firestore.rules` :
 - Le rôle (`admin` / `teacher`) vit uniquement dans le document `users/{uid}`, jamais dans un champ
   qu'on pourrait confondre avec une donnée de confort. Les règles vérifient ce rôle en lisant ce
   document (`get()`), pas un custom claim (qui nécessiterait l'Admin SDK, donc une Cloud Function).
-- **Création de compte enseignant** (*Paramètres → Enseignants*) : le code crée le compte
-  Authentication via une instance Firebase secondaire, pour ne pas déconnecter l'admin en cours de
-  session, puis écrit le profil `users/{uid}` (autorisé uniquement si l'appelant est admin), puis
-  déclenche un e-mail de réinitialisation de mot de passe — un service natif et gratuit de Firebase
-  Auth, sans extension payante.
+- **Invitation d'un compte enseignant** (*Paramètres → Enseignants*) : un admin écrit un document
+  `invitations/{email}` (rôle, classes, matières) — aucun compte Authentication n'est créé et
+  aucun e-mail n'est envoyé à ce stade. La personne invitée réclame elle-même son invitation en se
+  connectant dans l'appli avec **« Se connecter avec Google »** via cette adresse : les règles
+  n'autorisent la création de son profil `users/{uid}` que si les champs écrits correspondent
+  exactement à ceux de l'invitation (cf. `claimInvitation` dans `src/lib/users.js` et le bloc
+  `match /users/{uid}` de `firestore.rules`), donc impossible de s'auto-attribuer un rôle ou des
+  affectations différentes. Ce mécanisme élimine complètement le problème de délivrabilité des
+  e-mails Firebase Auth (cf. section dédiée plus bas) : plus aucun mail à recevoir pour créer un
+  compte.
 - **Unicité d'un appel** : l'ID du document (`date_classeId_matiereId_creneauId`) est déterministe.
   Firestore classe automatiquement une écriture en `create` ou `update` selon qu'un document
   existait déjà à ce chemin — et les règles n'autorisent la création qu'à cette seule condition.
@@ -38,11 +43,12 @@ donc entièrement portée par `firestore.rules` :
 - **Correction d'un appel verrouillé** : seul un admin peut modifier `entries`/`corrections` d'un
   appel existant ; toute autre écriture sur ce document est refusée par les règles.
 
-**Limite assumée** : sans Admin SDK server-side, on ne peut pas empêcher un utilisateur qui
-inspecterait le code de la page d'appeler lui-même `createUserWithEmailAndPassword` (la config
-Firebase d'une appli web est de toute façon toujours publique). Un tel compte "sauvage" resterait
-cependant sans profil `users/{uid}` — donc sans aucun accès aux données, tous les écrans et
-règles exigeant `hasProfile()`. De même, la protection "on ne peut pas retirer le dernier admin"
+**Limite assumée** : sans Admin SDK server-side, on ne peut pas empêcher n'importe qui de se
+connecter avec son propre compte Google sur l'appli (la config Firebase d'une appli web est de
+toute façon toujours publique). Un tel compte "sauvage" resterait cependant sans invitation
+correspondante — donc sans profil `users/{uid}`, donc sans aucun accès aux données, tous les
+écrans et règles exigeant `hasProfile()` — et se fait déconnecter automatiquement (cf.
+`AuthContext.jsx`). De même, la protection "on ne peut pas retirer le dernier admin"
 n'est qu'un garde-fou côté client (les règles Firestore ne peuvent pas compter des documents) —
 un risque très faible pour une petite équipe de confiance, mais à connaître.
 
@@ -52,7 +58,9 @@ un risque très faible pour une petite équipe de confiance, mais à connaître.
 
 Sur [console.firebase.google.com](https://console.firebase.google.com), dans ton projet :
 
-1. **Authentication** → Sign-in method → activer *E-mail/Mot de passe* si ce n'est pas déjà fait.
+1. **Authentication** → Sign-in method → activer *Google* (renseigner un e-mail d'assistance) —
+   c'est la méthode de connexion utilisée par tous les nouveaux comptes. Garder aussi
+   *E-mail/Mot de passe* activé si des comptes créés avant ce changement existent encore.
 2. **Firestore Database** → vérifier qu'une base existe (mode production).
 3. **Hosting** → activer si besoin (pas besoin de suivre l'assistant, on déploiera via CLI/CI).
 
@@ -112,25 +120,29 @@ npm run seed
 npm run bootstrap-admin "Prénom Nom" email@etablissement.fr
 ```
 
-Le script affiche un lien de réinitialisation de mot de passe à usage unique : transmets-le à la
-personne concernée pour qu'elle définisse son mot de passe et se connecte.
+Le script crée une invitation Firestore (pas de compte Authentication, aucun e-mail envoyé). Dis à
+la personne concernée d'ouvrir l'appli et de cliquer sur **« Se connecter avec Google »** avec
+cette adresse : son compte admin se crée automatiquement à cette première connexion.
 
-Les comptes suivants se créent ensuite directement depuis l'application, dans *Paramètres →
+Les comptes suivants s'invitent ensuite directement depuis l'application, dans *Paramètres →
 Enseignants & admins*.
 
-#### Pourquoi les comptes enseignants doivent utiliser une adresse Gmail
+#### Pourquoi les comptes se connectent avec Google plutôt que par e-mail/mot de passe
 
-Firebase Auth envoie les e-mails (création de compte, "mot de passe oublié") depuis un domaine
+Firebase Auth envoie ses e-mails (création de compte, "mot de passe oublié") depuis un domaine
 générique (`noreply@<projet>.firebaseapp.com`). Ça passe très bien sur Gmail, mais certains domaines
 avec des filtres anti-spam stricts — académies (`ac-*.fr`), FAI comme numericable.fr — le bloquent
 ou le mettent en quarantaine, faute de SPF/DKIM propres à ce domaine, et rien n'arrive jamais côté
-enseignant. Comme l'appli n'a volontairement aucun backend (pas de Cloud Functions, donc pas de
-moyen de générer un lien à afficher directement dans l'appli), la création de compte
-(*Paramètres → Enseignants*) exige désormais une adresse `@gmail.com` — la seule façon fiable
-d'éviter complètement ce problème de délivrabilité.
+enseignant. Plutôt qu'imposer une adresse Gmail pour contourner ce problème, l'appli utilise
+**« Se connecter avec Google »** pour tous les nouveaux comptes : plus aucun e-mail n'est jamais
+envoyé, donc plus aucun souci de délivrabilité, quel que soit le domaine de l'adresse — il suffit
+que la personne ait un compte Google (Gmail personnel ou compte Google Workspace de
+l'établissement).
 
-Pour un compte déjà créé avec une autre adresse (avant cette règle) et qui ne reçoit rien, génère-lui
-un lien manuellement :
+Les comptes créés *avant* ce changement gardent leur connexion par mot de passe (rien à migrer) et
+peuvent, s'ils le souhaitent, lier leur compte Google depuis *Paramètres* → *Lier mon compte
+Google* pour ne plus dépendre d'un mot de passe. Pour un compte ancien qui ne reçoit toujours pas
+l'e-mail de réinitialisation, génère-lui un lien manuellement :
 
 ```bash
 npm run generate-reset-link -- email@ac-xxx.fr

@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { linkWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { useAuth } from "../context/AuthContext";
 import Callout from "../components/ui/Callout";
 import Button from "../components/ui/Button";
@@ -21,11 +23,30 @@ const TABS = [
 export default function SettingsPage() {
   const { tab } = useParams();
   const navigate = useNavigate();
-  const { profile, isAdmin, signOut } = useAuth();
+  const { profile, isAdmin, signOut, user } = useAuth();
+  const [linking, setLinking] = useState(false);
+  const [linkError, setLinkError] = useState("");
 
   if (!tab) return <Navigate to="/parametres/eleves" replace />;
 
   const current = TABS.find((t) => t.key === tab) || TABS[0];
+  const hasGoogleLinked = user?.providerData?.some((p) => p.providerId === "google.com");
+
+  async function handleLinkGoogle() {
+    setLinkError("");
+    setLinking(true);
+    try {
+      await linkWithPopup(user, new GoogleAuthProvider());
+    } catch (err) {
+      setLinkError(
+        err.code === "auth/credential-already-in-use"
+          ? "Ce compte Google est déjà utilisé par un autre compte."
+          : "La liaison avec Google a échoué. Réessaie.",
+      );
+    } finally {
+      setLinking(false);
+    }
+  }
 
   return (
     <div className="page">
@@ -42,10 +63,21 @@ export default function SettingsPage() {
             {isAdmin ? "Administrateur" : "Enseignant"}
           </div>
         </div>
+        {!hasGoogleLinked && (
+          <Button variant="ghost" size="sm" onClick={handleLinkGoogle} disabled={linking}>
+            {linking ? "Liaison…" : "Lier mon compte Google"}
+          </Button>
+        )}
         <Button variant="ghost" size="sm" onClick={signOut}>
           Se déconnecter
         </Button>
       </div>
+
+      {linkError && (
+        <div style={{ marginBottom: 24 }}>
+          <Callout tone="danger">{linkError}</Callout>
+        </div>
+      )}
 
       {!isAdmin && (
         <div style={{ marginBottom: 24 }}>

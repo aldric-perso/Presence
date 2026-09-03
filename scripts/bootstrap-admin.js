@@ -1,4 +1,6 @@
-// Crée le tout premier compte administrateur d'un projet fraîchement déployé.
+// Invite le tout premier compte administrateur d'un projet fraîchement déployé : crée
+// l'invitation Firestore (aucun compte Authentication, aucun mail envoyé), à réclamer en se
+// connectant dans l'appli avec "Se connecter avec Google" via cette adresse.
 // Nécessite une clé de compte de service Firebase (serviceAccountKey.json, jamais commitée)
 // à la racine du projet, ou la variable d'environnement GOOGLE_APPLICATION_CREDENTIALS.
 //
@@ -6,9 +8,7 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { initializeApp, cert, applicationDefault } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
-import crypto from "node:crypto";
 
 const [displayName, email] = process.argv.slice(2);
 
@@ -24,33 +24,25 @@ if (existsSync(keyPath)) {
   initializeApp({ credential: applicationDefault() });
 }
 
-const auth = getAuth();
 const db = getFirestore();
 
 async function main() {
-  const temporaryPassword = crypto.randomBytes(24).toString("base64url");
+  const id = email.trim().toLowerCase();
 
-  const userRecord = await auth.createUser({
-    email,
-    password: temporaryPassword,
-    displayName,
-  });
-
-  await db.collection("users").doc(userRecord.uid).set({
+  await db.collection("invitations").doc(id).set({
     displayName,
     email,
     role: "admin",
     classIds: [],
     subjectIds: [],
-    active: true,
     createdAt: FieldValue.serverTimestamp(),
   });
 
-  const resetLink = await auth.generatePasswordResetLink(email);
-
-  console.log("\nCompte administrateur créé :", displayName, `(${email})`);
-  console.log("\nLien pour définir le mot de passe (à usage unique, transmets-le en privé) :");
-  console.log(resetLink);
+  console.log("\nInvitation administrateur créée :", displayName, `(${email})`);
+  console.log(
+    "\nCette personne peut maintenant ouvrir l'appli et cliquer sur « Se connecter avec Google »",
+  );
+  console.log(`en utilisant l'adresse ${email} — son compte se crée automatiquement.`);
 }
 
 main().then(

@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signInWithPopup,
+  GoogleAuthProvider,
+} from "firebase/auth";
 import { auth } from "../firebase";
 import Button from "../components/ui/Button";
 import Callout from "../components/ui/Callout";
@@ -21,9 +26,9 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (sessionStorage.getItem("presences:deactivated")) {
-      sessionStorage.removeItem("presences:deactivated");
-      setError("Ce compte a été désactivé. Contacte un administrateur.");
+    if (sessionStorage.getItem("presences:no-access")) {
+      sessionStorage.removeItem("presences:no-access");
+      setError("Ce compte n'a pas (ou plus) accès à l'application. Contacte un administrateur.");
     }
   }, []);
 
@@ -36,6 +41,25 @@ export default function LoginPage() {
       await signInWithEmailAndPassword(auth, email.trim(), password);
     } catch (err) {
       setError(ERROR_MESSAGES[err.code] || "La connexion a échoué. Réessaie.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    setError("");
+    setInfo("");
+    setSubmitting(true);
+    try {
+      await signInWithPopup(auth, new GoogleAuthProvider());
+    } catch (err) {
+      if (err.code === "auth/popup-closed-by-user" || err.code === "auth/cancelled-popup-request") {
+        // La personne a juste fermé la fenêtre Google : rien à afficher.
+      } else if (err.code === "auth/account-exists-with-different-credential") {
+        setError("Un compte existe déjà avec cette adresse via mot de passe : connecte-toi avec ton mot de passe ci-dessous.");
+      } else {
+        setError("La connexion avec Google a échoué. Réessaie.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -77,6 +101,17 @@ export default function LoginPage() {
           <div className="eyebrow">Connexion enseignant</div>
           <h1 className={styles.formTitle}>Identifie-toi</h1>
 
+          <Button
+            type="button"
+            variant="ghost"
+            full
+            disabled={submitting}
+            onClick={handleGoogleSignIn}
+            style={{ marginBottom: 18 }}
+          >
+            Se connecter avec Google
+          </Button>
+
           <div className={styles.formGroup}>
             <Field label="Adresse e-mail">
               <TextInput
@@ -111,7 +146,8 @@ export default function LoginPage() {
           </Button>
 
           <p className={styles.helpText}>
-            Si tu n'as pas encore de compte, demande à un admin de t'en créer un.
+            Si tu n'as pas encore de compte, demande à un admin de t'inviter — tu pourras ensuite
+            te connecter avec Google en utilisant la même adresse.
           </p>
         </form>
       </div>

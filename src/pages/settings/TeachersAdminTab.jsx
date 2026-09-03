@@ -1,7 +1,9 @@
 import { useState } from "react";
 import {
   useTeachers,
-  createTeacherAccount,
+  useInvitations,
+  createTeacherInvitation,
+  cancelInvitation,
   setUserRole,
   setTeacherActive,
   updateTeacherAssignments,
@@ -17,8 +19,11 @@ import Avatar from "../../components/ui/Avatar";
 import Modal from "../../components/ui/Modal";
 import styles from "./Shared.module.css";
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function TeachersAdminTab({ isAdmin }) {
   const { data: teachers } = useTeachers();
+  const { data: invitations } = useInvitations();
   const { data: classes } = useClasses();
   const { data: subjects } = useSubjects();
 
@@ -42,15 +47,17 @@ export default function TeachersAdminTab({ isAdmin }) {
       setError("Un enseignant portant un nom très proche existe déjà.");
       return;
     }
-    if (!email.trim().toLowerCase().endsWith("@gmail.com")) {
-      setError(
-        "L'adresse doit être une adresse Gmail (@gmail.com). Les autres domaines (académies, FAI comme numericable.fr) bloquent souvent l'e-mail automatique de définition du mot de passe.",
-      );
+    if (!EMAIL_RE.test(email.trim())) {
+      setError("Adresse e-mail invalide.");
+      return;
+    }
+    if (invitations.some((i) => i.id === email.trim().toLowerCase())) {
+      setError("Une invitation est déjà en attente pour cette adresse.");
       return;
     }
     setCreating(true);
     try {
-      await createTeacherAccount({
+      await createTeacherInvitation({
         displayName: displayName.trim(),
         email: email.trim(),
         role: asAdmin ? "admin" : "teacher",
@@ -61,14 +68,19 @@ export default function TeachersAdminTab({ isAdmin }) {
       setDisplayName("");
       setEmail("");
       setAsAdmin(false);
-    } catch (err) {
-      setError(
-        err.code === "auth/email-already-in-use"
-          ? "Un compte Authentication existe déjà avec cette adresse e-mail — si tu as supprimé cette personne directement dans Firestore (et non depuis cette page), son compte de connexion existe encore. Utilise `npm run delete-orphan-account -- email` en local pour le supprimer, puis recrée le compte ici."
-          : "La création du compte a échoué.",
-      );
+    } catch {
+      setError("L'invitation a échoué.");
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleCancelInvitation(id) {
+    setError("");
+    try {
+      await cancelInvitation(id);
+    } catch {
+      setError("L'annulation de l'invitation a échoué.");
     }
   }
 
@@ -102,34 +114,58 @@ export default function TeachersAdminTab({ isAdmin }) {
     <div>
       {isAdmin && (
         <div className={["card", styles.formCard].join(" ")}>
-          <div className={styles.formTitle}>Créer un compte</div>
+          <div className={styles.formTitle}>Inviter une personne</div>
           <p className={styles.formHint}>
-            L'enseignant reçoit un lien pour définir son mot de passe (pense à lui dire de vérifier
-            ses spams, l'e-mail y atterrit parfois). Un administrateur peut créer des classes, des
-            matières et corriger un appel verrouillé.{" "}
-            <strong>L'adresse doit être une adresse Gmail</strong> (@gmail.com) — les autres
-            domaines (académies, FAI) bloquent souvent l'e-mail automatique de Firebase.
+            Aucun mot de passe, aucun e-mail envoyé : la personne se connecte directement avec{" "}
+            <strong>« Se connecter avec Google »</strong> en utilisant cette adresse. Un
+            administrateur peut créer des classes, des matières et corriger un appel verrouillé.
           </p>
           <div className={[styles.formGrid, styles.responsiveFormGrid].join(" ")} style={{ gridTemplateColumns: "1.2fr 1.2fr auto auto" }}>
             <Field label="Nom complet">
               <TextInput value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Hélène Vasseur" />
             </Field>
-            <Field label="Adresse e-mail (Gmail)">
+            <Field label="Adresse e-mail">
               <TextInput
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="h.vasseur@gmail.com"
+                placeholder="h.vasseur@etablissement.fr"
               />
             </Field>
             <Pill active={asAdmin} tone="green" onClick={() => setAsAdmin((v) => !v)}>
               Rôle admin{asAdmin ? " ✓" : ""}
             </Pill>
             <Button onClick={handleCreate} disabled={creating}>
-              {creating ? "Création…" : "Créer"}
+              {creating ? "Invitation…" : "Inviter"}
             </Button>
           </div>
           {error && <p style={{ marginTop: 14, fontSize: 13, color: "var(--color-red)" }}>{error}</p>}
+        </div>
+      )}
+
+      {isAdmin && invitations.length > 0 && (
+        <div style={{ display: "grid", gap: 10, marginBottom: 20 }}>
+          <div className={styles.formTitle} style={{ fontSize: 13 }}>
+            Invitations en attente
+          </div>
+          {invitations.map((inv) => (
+            <div key={inv.id} className={["card", styles.groupCard].join(" ")} style={{ opacity: 0.85 }}>
+              <div className={styles.groupHeader}>
+                <Avatar name={inv.displayName} size={38} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 15, fontWeight: 600 }}>{inv.displayName}</span>
+                    {inv.role === "admin" && <Badge tone="green">Admin</Badge>}
+                    <Badge tone="amber">En attente</Badge>
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--color-ink-soft)", marginTop: 3 }}>{inv.email}</div>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => handleCancelInvitation(inv.id)}>
+                  Annuler l'invitation
+                </Button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -233,9 +269,9 @@ export default function TeachersAdminTab({ isAdmin }) {
 
       {createdInfo && (
         <Modal
-          kicker="Compte créé"
-          title={`Bienvenue à ${createdInfo.displayName}`}
-          text={`Un e-mail vient d'être envoyé à ${createdInfo.email} pour définir son mot de passe et se connecter. Pense à lui dire de vérifier ses spams s'il ne le voit pas arriver.`}
+          kicker="Invitation envoyée"
+          title={`${createdInfo.displayName} est invité·e`}
+          text={`Dis-lui d'aller sur l'appli et de cliquer sur « Se connecter avec Google » en utilisant ${createdInfo.email}. Son compte se crée automatiquement à sa première connexion — aucun mot de passe, aucun e-mail à recevoir.`}
           cancelLabel="Fermer"
           onCancel={() => setCreatedInfo(null)}
         />
