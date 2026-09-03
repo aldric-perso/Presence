@@ -112,6 +112,10 @@ export async function reactivateStudent(studentId) {
   await updateDoc(doc(db, "students", studentId), { departedAt: null });
 }
 
+export async function updateStudentArrivedAt(studentId, arrivedAt) {
+  await updateDoc(doc(db, "students", studentId), { arrivedAt: arrivedAt || todayISO() });
+}
+
 export async function updateStudentName(studentId, { firstName, lastName }) {
   const cleanFirstName = squeezeSpaces(firstName);
   const cleanLastName = squeezeSpaces(lastName);

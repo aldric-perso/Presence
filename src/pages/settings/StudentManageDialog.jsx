@@ -5,6 +5,7 @@ import {
   markStudentDeparted,
   mergeStudents,
   reactivateStudent,
+  updateStudentArrivedAt,
   updateStudentName,
 } from "../../lib/students";
 import { recordsReferencingStudent } from "../../lib/attendance";
@@ -20,6 +21,9 @@ export default function StudentManageDialog({ student, classes, classById, stude
   const [firstName, setFirstName] = useState(student.firstName);
   const [lastName, setLastName] = useState(student.lastName);
   const [savingName, setSavingName] = useState(false);
+
+  const [arrivedAt, setArrivedAt] = useState(student.arrivedAt || todayISO());
+  const [savingArrivedAt, setSavingArrivedAt] = useState(false);
 
   const [newClassId, setNewClassId] = useState(student.classId);
   const [changeDate, setChangeDate] = useState(todayISO());
@@ -43,6 +47,13 @@ export default function StudentManageDialog({ student, classes, classById, stude
     setSavingName(true);
     await updateStudentName(student.id, { firstName, lastName });
     setSavingName(false);
+  }
+
+  async function handleSaveArrivedAt() {
+    if (!arrivedAt) return;
+    setSavingArrivedAt(true);
+    await updateStudentArrivedAt(student.id, arrivedAt);
+    setSavingArrivedAt(false);
   }
 
   async function handleChangeClass() {
@@ -126,6 +137,18 @@ export default function StudentManageDialog({ student, classes, classById, stude
                     <TextInput value={lastName} onChange={(e) => setLastName(e.target.value)} />
                   </Field>
                   <Button size="sm" onClick={handleSaveName} disabled={savingName}>
+                    Enregistrer
+                  </Button>
+                </div>
+              </div>
+
+              <div className={styles.section}>
+                <div className={styles.sectionTitle}>Date d'arrivée</div>
+                <div className={sharedStyles.responsiveFormGrid} style={{ gridTemplateColumns: "1fr auto", gap: 10, alignItems: "end" }}>
+                  <Field label="Arrivé(e) le">
+                    <TextInput type="date" value={arrivedAt} onChange={(e) => setArrivedAt(e.target.value)} />
+                  </Field>
+                  <Button size="sm" onClick={handleSaveArrivedAt} disabled={savingArrivedAt || !arrivedAt}>
                     Enregistrer
                   </Button>
                 </div>
