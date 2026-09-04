@@ -38,6 +38,7 @@ export default function TeachersAdminTab({ isAdmin }) {
   const [pendingRoleChange, setPendingRoleChange] = useState(null);
   const [activeError, setActiveError] = useState("");
   const [pendingActiveChange, setPendingActiveChange] = useState(null);
+  const [pendingCancelInvitation, setPendingCancelInvitation] = useState(null);
 
   async function handleCreate() {
     if (!displayName.trim() || !email.trim()) return;
@@ -160,7 +161,7 @@ export default function TeachersAdminTab({ isAdmin }) {
                   </div>
                   <div style={{ fontSize: 12, color: "var(--color-ink-soft)", marginTop: 3 }}>{inv.email}</div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => handleCancelInvitation(inv.id)}>
+                <Button variant="ghost" size="sm" onClick={() => setPendingCancelInvitation(inv)}>
                   Annuler l'invitation
                 </Button>
               </div>
@@ -313,6 +314,22 @@ export default function TeachersAdminTab({ isAdmin }) {
           onConfirm={async () => {
             await handleToggleAdmin(pendingRoleChange);
             setPendingRoleChange(null);
+          }}
+        />
+      )}
+
+      {pendingCancelInvitation && (
+        <Modal
+          kicker="Invitation"
+          title={`Annuler l'invitation de ${pendingCancelInvitation.displayName} ?`}
+          text={`${pendingCancelInvitation.email} ne pourra plus se connecter tant qu'une nouvelle invitation n'aura pas été créée.`}
+          confirmLabel="Annuler l'invitation"
+          cancelLabel="Revenir"
+          danger
+          onCancel={() => setPendingCancelInvitation(null)}
+          onConfirm={async () => {
+            await handleCancelInvitation(pendingCancelInvitation.id);
+            setPendingCancelInvitation(null);
           }}
         />
       )}

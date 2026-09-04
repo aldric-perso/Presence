@@ -129,6 +129,7 @@ function DurationBadge({ label }) {
 function TimeSlotsSection({ isAdmin, timeSlots }) {
   const [newLabel, setNewLabel] = useState("");
   const [drafts, setDrafts] = useState({});
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   async function handleAdd() {
     if (!newLabel.trim()) return;
@@ -191,7 +192,7 @@ function TimeSlotsSection({ isAdmin, timeSlots }) {
                   Enregistrer
                 </Button>
                 <button
-                  onClick={() => deleteTimeSlot(slot.id)}
+                  onClick={() => setPendingDelete(slot)}
                   style={{ background: "transparent", border: "none", color: "var(--color-red)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
                 >
                   Supprimer
@@ -202,6 +203,22 @@ function TimeSlotsSection({ isAdmin, timeSlots }) {
         ))}
         {timeSlots.length === 0 && <div className={styles.emptyMsg}>Aucun créneau configuré.</div>}
       </div>
+
+      {pendingDelete && (
+        <Modal
+          kicker="Suppression"
+          title={`Supprimer le créneau « ${pendingDelete.label} » ?`}
+          text="Ce créneau ne sera plus proposé lors de la création d'un appel. Les appels déjà enregistrés avec ce créneau ne sont pas modifiés."
+          confirmLabel="Supprimer"
+          cancelLabel="Annuler"
+          danger
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={async () => {
+            await deleteTimeSlot(pendingDelete.id);
+            setPendingDelete(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -356,6 +373,7 @@ function ReasonsSection({ isAdmin, title, field, reasons, records, placeholder }
 
 function MinuteChoicesSection({ isAdmin, field, choices, title, hint }) {
   const [value, setValue] = useState("");
+  const [pendingRemove, setPendingRemove] = useState(null);
 
   async function handleAdd() {
     const n = Number(value);
@@ -364,8 +382,9 @@ function MinuteChoicesSection({ isAdmin, field, choices, title, hint }) {
     setValue("");
   }
 
-  function removeChoice(n) {
-    updateSettings({ [field]: choices.filter((c) => c !== n) });
+  function confirmRemove() {
+    updateSettings({ [field]: choices.filter((c) => c !== pendingRemove) });
+    setPendingRemove(null);
   }
 
   return (
@@ -392,7 +411,7 @@ function MinuteChoicesSection({ isAdmin, field, choices, title, hint }) {
             <span className="tabular" style={{ fontSize: 14, fontWeight: 600 }}>{n} min</span>
             {isAdmin && (
               <button
-                onClick={() => removeChoice(n)}
+                onClick={() => setPendingRemove(n)}
                 style={{ background: "transparent", border: "none", color: "var(--color-red)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
               >
                 ✕
@@ -402,6 +421,19 @@ function MinuteChoicesSection({ isAdmin, field, choices, title, hint }) {
         ))}
         {choices.length === 0 && <span style={{ fontSize: 13, color: "var(--color-muted)" }}>Aucune saisie rapide configurée.</span>}
       </div>
+
+      {pendingRemove != null && (
+        <Modal
+          kicker="Suppression"
+          title={`Retirer « ${pendingRemove} min » ?`}
+          text="Cette durée ne sera plus proposée en un clic. Elle reste modifiable à tout moment en la rajoutant."
+          confirmLabel="Retirer"
+          cancelLabel="Annuler"
+          danger
+          onCancel={() => setPendingRemove(null)}
+          onConfirm={confirmRemove}
+        />
+      )}
     </div>
   );
 }
