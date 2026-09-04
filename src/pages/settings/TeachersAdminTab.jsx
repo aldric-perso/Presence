@@ -182,6 +182,7 @@ export default function TeachersAdminTab({ isAdmin }) {
           const validSubjectIds = (t.subjectIds || []).filter((id) => subjects.some((s) => s.id === id));
 
           const isInactive = t.active === false;
+          const hasNoAssignments = validClassIds.length === 0 && validSubjectIds.length === 0;
 
           return (
             <div
@@ -204,13 +205,28 @@ export default function TeachersAdminTab({ isAdmin }) {
                 {isAdmin && (
                   <>
                     <Button variant="ghost" size="sm" onClick={() => setPendingRoleChange(t)}>
-                      Basculer admin
+                      {t.role === "admin" ? "Retirer admin" : "Passer admin"}
                     </Button>
                     <Button
                       size="sm"
                       onClick={() => setEditingId(editingId === t.id ? null : t.id)}
                     >
-                      Affectations
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        Affectations
+                        {hasNoAssignments && (
+                          <span
+                            title="Aucune classe ni matière affectée"
+                            style={{
+                              display: "inline-block",
+                              width: 7,
+                              height: 7,
+                              borderRadius: "50%",
+                              background: "var(--color-amber-dark)",
+                              flexShrink: 0,
+                            }}
+                          />
+                        )}
+                      </span>
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => setPendingActiveChange(t)}>
                       {isInactive ? "Réactiver" : "Désactiver"}
