@@ -17,6 +17,7 @@ import { auth, db } from "../firebase";
 import { useCollection } from "./useCollection";
 import { attendanceRecordId, initialsOf } from "./ids";
 import { todayISO, isoDaysAgo } from "./dates";
+import { durationMinutes } from "./timeSlots";
 
 const recordsRef = collection(db, "attendanceRecords");
 
@@ -74,7 +75,7 @@ export async function checkExistingRecord({ date, classId, subjectId, timeSlotId
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
-function validateEntries(entries) {
+function validateEntries(entries, sessionMinutes) {
   if (!Array.isArray(entries) || entries.length === 0) {
     throw new Error("La liste des élèves est vide.");
   }
@@ -85,20 +86,21 @@ function validateEntries(entries) {
     if (e.status !== STATUS.PRESENT && !e.reason?.trim()) {
       throw new Error("Un motif est requis pour tout élève non présent.");
     }
-    if (e.status === STATUS.LATE && (!Number.isFinite(e.minutesMissed) || e.minutesMissed <= 0 || e.minutesMissed >= 50)) {
+    if (e.status === STATUS.LATE && (!Number.isFinite(e.minutesMissed) || e.minutesMissed <= 0 || e.minutesMissed >= sessionMinutes)) {
       throw new Error("Durée de retard invalide.");
     }
-    if (e.status === STATUS.PARTIAL && (!Number.isFinite(e.minutesPresent) || e.minutesPresent <= 0 || e.minutesPresent >= 50)) {
+    if (e.status === STATUS.PARTIAL && (!Number.isFinite(e.minutesPresent) || e.minutesPresent <= 0 || e.minutesPresent >= sessionMinutes)) {
       throw new Error("Durée de présence partielle invalide.");
     }
   }
 }
 
-function cleanEntries(entries) {
+function cleanEntries(entries, sessionMinutes) {
   return entries.map((e) => ({
     studentId: e.studentId,
     status: e.status,
-    minutesMissed: e.status === STATUS.PRESENT ? 0 : e.status === STATUS.ABSENT ? 50 : e.status === STATUS.PARTIAL ? 0 : e.minutesMissed,
+    minutesMissed:
+      e.status === STATUS.PRESENT ? 0 : e.status === STATUS.ABSENT ? sessionMinutes : e.status === STATUS.PARTIAL ? 0 : e.minutesMissed,
     minutesPresent: e.status === STATUS.PARTIAL ? e.minutesPresent : null,
     reason: e.status === STATUS.PRESENT ? null : e.reason.trim(),
   }));
@@ -112,8 +114,6 @@ function cleanEntries(entries) {
  * transaction serveur à écrire.
  */
 export async function submitAttendanceRecord({ date, classId, subjectId, timeSlotId, entries }) {
-  validateEntries(entries);
-
   const [classSnap, subjectSnap, timeSlotSnap, authorSnap] = await Promise.all([
     getDoc(doc(db, "classes", classId)),
     getDoc(doc(db, "subjects", subjectId)),
@@ -124,6 +124,10 @@ export async function submitAttendanceRecord({ date, classId, subjectId, timeSlo
     throw new Error("Classe, matière ou créneau introuvable.");
   }
 
+  const timeSlotLabel = timeSlotSnap.data().label;
+  const sessionMinutes = durationMinutes(timeSlotLabel) || 50;
+  validateEntries(entries, sessionMinutes);
+
   const recordId = attendanceRecordId({ date, classId, subjectId, timeSlotId });
 
   try {
@@ -133,12 +137,12 @@ export async function submitAttendanceRecord({ date, classId, subjectId, timeSlo
       className: classSnap.data().name,
       subjectId,
       subjectName: subjectSnap.data().name,
-      sessionMinutes: subjectSnap.data().sessionMinutes || 50,
+      sessionMinutes,
       timeSlotId,
-      timeSlotLabel: timeSlotSnap.data().label,
+      timeSlotLabel,
       authorId: auth.currentUser.uid,
       authorName: authorSnap.data().displayName,
-      entries: cleanEntries(entries),
+      entries: cleanEntries(entries, sessionMinutes),
       locked: true,
       corrections: [],
       createdAt: serverTimestamp(),
@@ -165,12 +169,16 @@ export async function correctAttendanceRecord({ recordId, entries, reason }) {
   if (!reason?.trim()) {
     throw new Error("Un motif de correction est requis.");
   }
-  validateEntries(entries);
 
-  const authorSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
+  const [recordSnap, authorSnap] = await Promise.all([
+    getDoc(doc(db, "attendanceRecords", recordId)),
+    getDoc(doc(db, "users", auth.currentUser.uid)),
+  ]);
+  const sessionMinutes = recordSnap.data()?.sessionMinutes || 50;
+  validateEntries(entries, sessionMinutes);
 
   await updateDoc(doc(db, "attendanceRecords", recordId), {
-    entries: cleanEntries(entries),
+    entries: cleanEntries(entries, sessionMinutes),
     corrections: arrayUnion({
       by: auth.currentUser.uid,
       byName: authorSnap.data().displayName,

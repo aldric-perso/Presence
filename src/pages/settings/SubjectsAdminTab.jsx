@@ -29,7 +29,10 @@ export default function SubjectsAdminTab({ isAdmin }) {
       {isAdmin && (
         <div className={["card", styles.formCard].join(" ")}>
           <div className={styles.formTitle}>Ajouter une matière</div>
-          <p className={styles.formHint}>Toutes les séances durent 50 minutes — c'est la base du calcul de présence.</p>
+          <p className={styles.formHint}>
+            La durée d'une séance est déterminée par le créneau horaire choisi lors de l'appel (voir
+            l'onglet Créneaux &amp; motifs) — c'est elle qui sert de base au calcul de présence.
+          </p>
           <div style={{ display: "flex", gap: 10, alignItems: "end" }}>
             <div style={{ flex: 1, maxWidth: 320 }}>
               <Field label="Intitulé">
@@ -49,9 +52,7 @@ export default function SubjectsAdminTab({ isAdmin }) {
             <div key={s.id} className={["card", styles.simpleCard].join(" ")}>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 600 }}>{s.name}</div>
-                <div style={{ fontSize: 12, color: "var(--color-muted)", marginTop: 2 }}>
-                  {s.sessionMinutes} min · {nbProfs} enseignant(s)
-                </div>
+                <div style={{ fontSize: 12, color: "var(--color-muted)", marginTop: 2 }}>{nbProfs} enseignant(s)</div>
               </div>
               {isAdmin && (
                 <button

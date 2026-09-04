@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useClasses } from "../lib/classes";
 import { useSubjects } from "../lib/subjects";
-import { useTimeSlots } from "../lib/timeSlots";
+import { useTimeSlots, durationMinutes, formatDuration } from "../lib/timeSlots";
 import { checkExistingRecord } from "../lib/attendance";
 import { todayISO, isoDaysAgo, formatDateLabel } from "../lib/dates";
 import { Pill } from "../components/ui/Pill";
@@ -167,14 +167,18 @@ export default function NewAttendancePage() {
 
         <div>
           <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
-            Créneau <span style={{ fontWeight: 400, color: "var(--color-muted)" }}>— séances de 50 minutes</span>
+            Créneau
           </label>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {timeSlots.map((slot) => (
-              <Pill key={slot.id} active={timeSlotId === slot.id} onClick={() => setTimeSlotId(slot.id)}>
-                {slot.label}
-              </Pill>
-            ))}
+            {timeSlots.map((slot) => {
+              const minutes = durationMinutes(slot.label);
+              return (
+                <Pill key={slot.id} active={timeSlotId === slot.id} onClick={() => setTimeSlotId(slot.id)}>
+                  {slot.label}
+                  {minutes != null && ` (${formatDuration(minutes)})`}
+                </Pill>
+              );
+            })}
           </div>
         </div>
 

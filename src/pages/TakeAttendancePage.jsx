@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useClasses } from "../lib/classes";
 import { useSubjects } from "../lib/subjects";
-import { useTimeSlots } from "../lib/timeSlots";
+import { useTimeSlots, durationMinutes, formatDuration } from "../lib/timeSlots";
 import { useStudentsByClass } from "../lib/students";
 import { useSettings } from "../lib/settings";
 import { submitAttendanceRecord, STATUS } from "../lib/attendance";
@@ -34,6 +34,7 @@ export default function TakeAttendancePage() {
   const classe = classes.find((c) => c.id === classId);
   const subject = subjects.find((s) => s.id === subjectId);
   const timeSlot = timeSlots.find((s) => s.id === timeSlotId);
+  const sessionMinutes = durationMinutes(timeSlot?.label) || 50;
 
   const [roll, setRoll] = useState({});
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -63,7 +64,7 @@ export default function TakeAttendancePage() {
           ...prev,
           [studentId]: {
             status: STATUS.LATE,
-            minutesMissed: cur.status === STATUS.LATE ? cur.minutesMissed : 10,
+            minutesMissed: cur.status === STATUS.LATE ? cur.minutesMissed : Math.min(10, sessionMinutes - 1),
             minutesPresent: null,
             reason: cur.status === STATUS.LATE ? cur.reason : null,
           },
@@ -75,14 +76,15 @@ export default function TakeAttendancePage() {
           [studentId]: {
             status: STATUS.PARTIAL,
             minutesMissed: 0,
-            minutesPresent: cur.status === STATUS.PARTIAL ? cur.minutesPresent : settings.partialMinuteChoices?.[0] ?? 30,
+            minutesPresent:
+              cur.status === STATUS.PARTIAL ? cur.minutesPresent : Math.min(settings.partialMinuteChoices?.[0] ?? 30, sessionMinutes - 1),
             reason: cur.status === STATUS.PARTIAL ? cur.reason : null,
           },
         };
       }
       return {
         ...prev,
-        [studentId]: { status: STATUS.ABSENT, minutesMissed: 50, minutesPresent: null, reason: cur.reason || null },
+        [studentId]: { status: STATUS.ABSENT, minutesMissed: sessionMinutes, minutesPresent: null, reason: cur.reason || null },
       };
     });
   }
@@ -145,7 +147,7 @@ export default function TakeAttendancePage() {
         <div className={styles.topbarInner}>
           <div style={{ flex: 1 }}>
             <div className="eyebrow">
-              {formatDateLabel(date)} · {timeSlot?.label}
+              {formatDateLabel(date)} · {timeSlot?.label} ({formatDuration(sessionMinutes)})
             </div>
             <div className={styles.title}>
               {classe?.name} — {subject?.name}
@@ -201,6 +203,7 @@ export default function TakeAttendancePage() {
               student={s}
               entry={roll[s.id] || defaultEntry()}
               settings={settings}
+              sessionMinutes={sessionMinutes}
               onSetStatus={(status) => setStatus(s.id, status)}
               onPatch={(patch) => patchEntry(s.id, patch)}
             />
@@ -236,7 +239,7 @@ export default function TakeAttendancePage() {
   );
 }
 
-function ReasonPicker({ entry, onPatch, settings }) {
+function ReasonPicker({ entry, onPatch, settings, sessionMinutes }) {
   const isLate = entry.status === STATUS.LATE;
   const isPartial = entry.status === STATUS.PARTIAL;
   const reasons = isLate ? settings.lateReasons : isPartial ? settings.partialReasons : settings.absenceReasons;
@@ -246,17 +249,19 @@ function ReasonPicker({ entry, onPatch, settings }) {
         <div style={{ marginBottom: 14 }}>
           <div className={styles.detailLabel}>{isLate ? "Temps d'absence" : "Temps de présence"}</div>
           <div className={styles.chipRow}>
-            {(isLate ? settings.lateMinuteChoices : settings.partialMinuteChoices).map((m) => (
-              <Pill
-                key={m}
-                size="sm"
-                tone={isLate ? "amber" : "teal"}
-                active={(isLate ? entry.minutesMissed : entry.minutesPresent) === m}
-                onClick={() => onPatch(isLate ? { minutesMissed: m } : { minutesPresent: m })}
-              >
-                {m} min
-              </Pill>
-            ))}
+            {(isLate ? settings.lateMinuteChoices : settings.partialMinuteChoices)
+              .filter((m) => m < sessionMinutes)
+              .map((m) => (
+                <Pill
+                  key={m}
+                  size="sm"
+                  tone={isLate ? "amber" : "teal"}
+                  active={(isLate ? entry.minutesMissed : entry.minutesPresent) === m}
+                  onClick={() => onPatch(isLate ? { minutesMissed: m } : { minutesPresent: m })}
+                >
+                  {m} min
+                </Pill>
+              ))}
           </div>
         </div>
       )}
@@ -276,7 +281,7 @@ function ReasonPicker({ entry, onPatch, settings }) {
   );
 }
 
-function RollRow({ student, entry, onSetStatus, onPatch, settings }) {
+function RollRow({ student, entry, onSetStatus, onPatch, settings, sessionMinutes }) {
   return (
     <div className={styles.rollRow}>
       <div className={styles.rollRowMain}>
@@ -302,7 +307,7 @@ function RollRow({ student, entry, onSetStatus, onPatch, settings }) {
       {entry.status !== STATUS.PRESENT && (
         <div className={[styles.detail, "animate-pop"].join(" ")}>
           <div className={styles.detailBox}>
-            <ReasonPicker entry={entry} onPatch={onPatch} settings={settings} />
+            <ReasonPicker entry={entry} onPatch={onPatch} settings={settings} sessionMinutes={sessionMinutes} />
           </div>
         </div>
       )}

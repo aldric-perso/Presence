@@ -5,6 +5,7 @@ import { useStudentsByIds } from "../lib/students";
 import { useAttendanceRecord, correctAttendanceRecord, isEditableByAuthor, STATUS } from "../lib/attendance";
 import { useSettings } from "../lib/settings";
 import { formatDateShort, formatTimestamp } from "../lib/dates";
+import { formatDuration } from "../lib/timeSlots";
 import { Pill } from "../components/ui/Pill";
 import Avatar from "../components/ui/Avatar";
 import Button from "../components/ui/Button";
@@ -18,6 +19,7 @@ export default function CorrectionPage() {
   const { user, isAdmin } = useAuth();
   const { settings } = useSettings();
   const { record, loading } = useAttendanceRecord(recordId);
+  const sessionMinutes = record?.sessionMinutes || 50;
   const studentIds = useMemo(() => (record?.entries || []).map((e) => e.studentId), [record]);
   const { data: students, loading: studentsLoading } = useStudentsByIds(studentIds);
 
@@ -52,7 +54,7 @@ export default function CorrectionPage() {
           ...prev,
           [studentId]: {
             status: STATUS.LATE,
-            minutesMissed: cur.status === STATUS.LATE ? cur.minutesMissed : 10,
+            minutesMissed: cur.status === STATUS.LATE ? cur.minutesMissed : Math.min(10, sessionMinutes - 1),
             minutesPresent: null,
             reason: cur.reason || null,
           },
@@ -63,11 +65,15 @@ export default function CorrectionPage() {
           [studentId]: {
             status: STATUS.PARTIAL,
             minutesMissed: 0,
-            minutesPresent: cur.status === STATUS.PARTIAL ? cur.minutesPresent : settings.partialMinuteChoices?.[0] ?? 30,
+            minutesPresent:
+              cur.status === STATUS.PARTIAL ? cur.minutesPresent : Math.min(settings.partialMinuteChoices?.[0] ?? 30, sessionMinutes - 1),
             reason: cur.reason || null,
           },
         };
-      return { ...prev, [studentId]: { status: STATUS.ABSENT, minutesMissed: 50, minutesPresent: null, reason: cur.reason || null } };
+      return {
+        ...prev,
+        [studentId]: { status: STATUS.ABSENT, minutesMissed: sessionMinutes, minutesPresent: null, reason: cur.reason || null },
+      };
     });
   }
 
@@ -127,7 +133,7 @@ export default function CorrectionPage() {
         {record.className} — {record.subjectName}
       </h1>
       <p style={{ fontSize: 14, color: "var(--color-ink-soft)", margin: "0 0 28px" }}>
-        {formatDateShort(record.date)} · {record.timeSlotLabel} · saisi par {record.authorName}
+        {formatDateShort(record.date)} · {record.timeSlotLabel} ({formatDuration(sessionMinutes)}) · saisi par {record.authorName}
       </p>
 
       {(record.corrections || []).length > 0 && (
@@ -173,17 +179,19 @@ export default function CorrectionPage() {
                 <div className="animate-pop" style={{ marginTop: 12, marginLeft: 48, display: "grid", gap: 10 }}>
                   {(isLate || isPartial) && (
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {(isLate ? settings.lateMinuteChoices : settings.partialMinuteChoices).map((m) => (
-                        <Pill
-                          key={m}
-                          size="xs"
-                          tone={isLate ? "amber" : "teal"}
-                          active={(isLate ? entry.minutesMissed : entry.minutesPresent) === m}
-                          onClick={() => patchEntry(s.id, isLate ? { minutesMissed: m } : { minutesPresent: m })}
-                        >
-                          {m} min
-                        </Pill>
-                      ))}
+                      {(isLate ? settings.lateMinuteChoices : settings.partialMinuteChoices)
+                        .filter((m) => m < sessionMinutes)
+                        .map((m) => (
+                          <Pill
+                            key={m}
+                            size="xs"
+                            tone={isLate ? "amber" : "teal"}
+                            active={(isLate ? entry.minutesMissed : entry.minutesPresent) === m}
+                            onClick={() => patchEntry(s.id, isLate ? { minutesMissed: m } : { minutesPresent: m })}
+                          >
+                            {m} min
+                          </Pill>
+                        ))}
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
