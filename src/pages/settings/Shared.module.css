@@ -4,6 +4,11 @@
   border-bottom: 1px solid var(--color-line-strong);
   margin-bottom: 28px;
   overflow-x: auto;
+  /* Sans ça, la spec CSS force overflow-y à se comporter comme "auto" dès que overflow-x est
+     défini (un axe ne peut pas rester "visible" si l'autre ne l'est pas) : le moindre débordement
+     vertical d'un pixel (bordures, line-height) fait alors apparaître une scrollbar verticale
+     inutile sur cette barre d'onglets, qui ne doit défiler qu'horizontalement. */
+  overflow-y: hidden;
 }
 .tab {
   padding: 12px 16px;
