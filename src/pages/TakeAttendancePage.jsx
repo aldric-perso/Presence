@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useClasses } from "../lib/classes";
 import { useSubjects } from "../lib/subjects";
 import { useTimeSlots, durationMinutes, formatDuration } from "../lib/timeSlots";
-import { useStudentsByClass } from "../lib/students";
+import { useStudentsByClasses } from "../lib/students";
 import { useSettings } from "../lib/settings";
 import { submitAttendanceRecord, STATUS } from "../lib/attendance";
 import { formatDateLabel } from "../lib/dates";
@@ -26,20 +26,36 @@ export default function TakeAttendancePage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const date = params.get("date");
-  const classId = params.get("classId");
+  const classIds = useMemo(() => (params.get("classIds") || "").split(",").filter(Boolean), [params]);
   const subjectId = params.get("subjectId");
   const timeSlotId = params.get("timeSlotId");
 
   const { data: classes } = useClasses({ includeArchived: true });
   const { data: subjects } = useSubjects();
   const { data: timeSlots } = useTimeSlots();
-  const { data: students, loading: studentsLoading } = useStudentsByClass(classId);
+  const { data: students, loading: studentsLoading } = useStudentsByClasses(classIds);
   const { settings } = useSettings();
 
-  const classe = classes.find((c) => c.id === classId);
   const subject = subjects.find((s) => s.id === subjectId);
   const timeSlot = timeSlots.find((s) => s.id === timeSlotId);
   const sessionMinutes = durationMinutes(timeSlot?.label) || 50;
+
+  const classGroups = useMemo(
+    () =>
+      classIds.map((id) => ({
+        classe: classes.find((c) => c.id === id),
+        students: students
+          .filter((s) => s.classId === id)
+          .sort((a, b) => a.lastName.localeCompare(b.lastName, "fr")),
+      })),
+    [classIds, classes, students],
+  );
+  const allStudents = useMemo(() => classGroups.flatMap((g) => g.students), [classGroups]);
+  const classeByStudentId = useMemo(() => {
+    const map = new Map();
+    classGroups.forEach((g) => g.students.forEach((s) => map.set(s.id, g.classe)));
+    return map;
+  }, [classGroups]);
 
   const [roll, setRoll] = useState({});
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -47,20 +63,20 @@ export default function TakeAttendancePage() {
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    if (!studentsLoading && students.length) {
+    if (!studentsLoading && allStudents.length) {
       setRoll((prev) => {
         const next = { ...prev };
-        students.forEach((s) => {
-          if (!next[s.id]) next[s.id] = defaultEntry(classe);
+        allStudents.forEach((s) => {
+          if (!next[s.id]) next[s.id] = defaultEntry(classeByStudentId.get(s.id));
         });
         return next;
       });
     }
-  }, [students, studentsLoading, classe]);
+  }, [allStudents, studentsLoading, classeByStudentId]);
 
   function setStatus(studentId, status) {
     setRoll((prev) => {
-      const cur = prev[studentId] || defaultEntry(classe);
+      const cur = prev[studentId] || defaultEntry(classeByStudentId.get(studentId));
       if (status === STATUS.PRESENT) {
         return { ...prev, [studentId]: { status: STATUS.PRESENT, minutesMissed: 0, minutesPresent: null, reason: null } };
       }
@@ -101,7 +117,10 @@ export default function TakeAttendancePage() {
     setRoll((prev) => ({ ...prev, [studentId]: { ...prev[studentId], ...patch } }));
   }
 
-  const entries = students.map((s) => ({ studentId: s.id, ...(roll[s.id] || defaultEntry(classe)) }));
+  const entries = allStudents.map((s) => ({
+    studentId: s.id,
+    ...(roll[s.id] || defaultEntry(classeByStudentId.get(s.id))),
+  }));
   const nbPresents = entries.filter((e) => e.status === STATUS.PRESENT).length;
   const nbPartiels = entries.filter((e) => e.status === STATUS.PARTIAL).length;
   const nbRetards = entries.filter((e) => e.status === STATUS.LATE).length;
@@ -114,37 +133,50 @@ export default function TakeAttendancePage() {
     ? `${missingReasons.length} motif(s) manquant(s) — la validation est bloquée.`
     : `${nbPresents} présents, ${nbPartiels} présences partielles, ${nbRetards} retards, ${nbAbsents} absents, ${nbNA} N/A. Prêt à enregistrer.`;
 
+  function buildEntry(e) {
+    return {
+      studentId: e.studentId,
+      status: e.status,
+      minutesMissed: e.status === STATUS.PRESENT || e.status === STATUS.PARTIAL || e.status === STATUS.NA ? 0 : e.minutesMissed,
+      minutesPresent: e.status === STATUS.PARTIAL ? e.minutesPresent : null,
+      reason: e.status === STATUS.PRESENT || e.status === STATUS.NA ? null : e.reason,
+    };
+  }
+
   async function handleConfirmValidate() {
     setSubmitting(true);
     setErrorMsg("");
-    try {
-      await submitAttendanceRecord({
-        date,
-        classId,
-        subjectId,
-        timeSlotId,
-        entries: entries.map((e) => ({
-          studentId: e.studentId,
-          status: e.status,
-          minutesMissed: e.status === STATUS.PRESENT || e.status === STATUS.PARTIAL || e.status === STATUS.NA ? 0 : e.minutesMissed,
-          minutesPresent: e.status === STATUS.PARTIAL ? e.minutesPresent : null,
-          reason: e.status === STATUS.PRESENT || e.status === STATUS.NA ? null : e.reason,
-        })),
-      });
+    const results = await Promise.allSettled(
+      classGroups.map((g, i) => {
+        const studentIds = new Set(g.students.map((s) => s.id));
+        return submitAttendanceRecord({
+          date,
+          classId: classIds[i],
+          subjectId,
+          timeSlotId,
+          entries: entries.filter((e) => studentIds.has(e.studentId)).map(buildEntry),
+        });
+      }),
+    );
+    const failures = results
+      .map((r, i) => ({ r, name: classGroups[i].classe?.name || classIds[i] }))
+      .filter(({ r }) => r.status === "rejected" && r.reason?.code !== "already-exists");
+
+    if (failures.length === 0) {
       navigate("/");
-    } catch (err) {
+    } else {
       setConfirmOpen(false);
+      const succeededCount = classGroups.length - failures.length;
       setErrorMsg(
-        err.code === "already-exists"
-          ? "Cet appel a déjà été enregistré entre-temps par un autre enseignant."
-          : "L'enregistrement a échoué. Réessaie.",
+        `L'enregistrement a échoué pour : ${failures.map((f) => f.name).join(", ")}.` +
+          (succeededCount > 0 ? ` Les autres classes ont bien été enregistrées.` : "") +
+          " Réessaie.",
       );
-    } finally {
-      setSubmitting(false);
     }
+    setSubmitting(false);
   }
 
-  const missingParams = !classId || !subjectId || !timeSlotId || !date;
+  const missingParams = classIds.length === 0 || !subjectId || !timeSlotId || !date;
   useEffect(() => {
     if (missingParams) navigate("/appel/nouveau", { replace: true });
   }, [missingParams, navigate]);
@@ -159,7 +191,7 @@ export default function TakeAttendancePage() {
               {formatDateLabel(date)} · {timeSlot?.label} ({formatDuration(sessionMinutes)})
             </div>
             <div className={styles.title}>
-              {classe?.name} — {subject?.name}
+              {classGroups.map((g) => g.classe?.name).filter(Boolean).join(" + ")} — {subject?.name}
             </div>
           </div>
           <div className={["tabular", styles.counts].join(" ")}>
@@ -196,19 +228,27 @@ export default function TakeAttendancePage() {
       </div>
 
       <div className={styles.body}>
-        <p className={styles.hint}>
-          {classe?.defaultStatusNA ? (
-            <>
-              Tout le monde est marqué <strong>N/A par défaut</strong> pour cette classe. Ne marque que les
-              écarts.
-            </>
-          ) : (
-            <>
-              Tout le monde est <strong style={{ color: "var(--color-green)" }}>présent par défaut</strong>.
-              Ne marque que les écarts.
-            </>
-          )}
-        </p>
+        {classGroups.length === 1 && (
+          <p className={styles.hint}>
+            {classGroups[0].classe?.defaultStatusNA ? (
+              <>
+                Tout le monde est marqué <strong>N/A par défaut</strong> pour cette classe. Ne marque que
+                les écarts.
+              </>
+            ) : (
+              <>
+                Tout le monde est{" "}
+                <strong style={{ color: "var(--color-green)" }}>présent par défaut</strong>. Ne marque que
+                les écarts.
+              </>
+            )}
+          </p>
+        )}
+        {classGroups.length > 1 && (
+          <p className={styles.hint}>
+            Appel regroupé pour {classGroups.length} classes — chacune garde son propre statut par défaut.
+          </p>
+        )}
 
         {errorMsg && (
           <div style={{ marginBottom: 16 }}>
@@ -219,16 +259,28 @@ export default function TakeAttendancePage() {
         )}
 
         <div className="card">
-          {students.map((s) => (
-            <RollRow
-              key={s.id}
-              student={s}
-              entry={roll[s.id] || defaultEntry()}
-              settings={settings}
-              sessionMinutes={sessionMinutes}
-              onSetStatus={(status) => setStatus(s.id, status)}
-              onPatch={(patch) => patchEntry(s.id, patch)}
-            />
+          {classGroups.map((g, i) => (
+            <div key={g.classe?.id || i}>
+              {classGroups.length > 1 && (
+                <div className={styles.groupHeader}>
+                  <span className={styles.groupBadge}>{g.classe?.name}</span>
+                  <span className={styles.groupHint}>
+                    {g.classe?.defaultStatusNA ? "N/A par défaut" : "Présent par défaut"}
+                  </span>
+                </div>
+              )}
+              {g.students.map((s) => (
+                <RollRow
+                  key={s.id}
+                  student={s}
+                  entry={roll[s.id] || defaultEntry(g.classe)}
+                  settings={settings}
+                  sessionMinutes={sessionMinutes}
+                  onSetStatus={(status) => setStatus(s.id, status)}
+                  onPatch={(patch) => patchEntry(s.id, patch)}
+                />
+              ))}
+            </div>
           ))}
         </div>
       </div>
@@ -250,7 +302,7 @@ export default function TakeAttendancePage() {
           kicker="Confirmation"
           title="Enregistrer cet appel ?"
           text="Une fois validé, l'appel est verrouillé et signé à ton nom. Tu pourras le corriger toi-même par la suite si besoin, tout comme un administrateur."
-          detail={`${classe?.name} · ${subject?.name} · ${timeSlot?.label}`}
+          detail={`${classGroups.map((g) => g.classe?.name).filter(Boolean).join(" + ")} · ${subject?.name} · ${timeSlot?.label}`}
           confirmLabel={submitting ? "Enregistrement…" : "Enregistrer"}
           cancelLabel="Relire"
           onCancel={() => setConfirmOpen(false)}

@@ -48,6 +48,25 @@
   margin: 0 0 18px;
 }
 
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 22px 8px;
+}
+.groupBadge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: var(--color-bg);
+}
+.groupHint {
+  font-size: 12px;
+  color: var(--color-ink-soft);
+}
+
 .rollRow {
   border-bottom: 1px solid var(--color-line);
 }

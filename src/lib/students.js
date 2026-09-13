@@ -36,6 +36,22 @@ export function useStudentsByClass(classId) {
 }
 
 /**
+ * Élèves actuellement inscrits dans un ensemble de classes (exclut ceux marqués partis) — pour
+ * l'appel multi-classes. Pas de `orderBy` ici (un tri par nom sur un `where(..., "in", ...)`
+ * exigerait un index composite Firestore à créer manuellement) : trier côté client si besoin.
+ */
+export function useStudentsByClasses(classIds) {
+  const key = (classIds || []).slice().sort().join(",");
+  const q = useMemo(
+    () => (classIds && classIds.length ? query(studentsRef, where("classId", "in", classIds)) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [key],
+  );
+  const result = useCollection(q);
+  return { ...result, data: result.data.filter((s) => !s.departedAt) };
+}
+
+/**
  * Récupère des élèves par ID, quel que soit leur classe ou statut actuel — utilisé pour
  * reconstruire le roster exact d'un appel passé (record.entries), y compris si l'élève a depuis
  * changé de classe ou est parti.

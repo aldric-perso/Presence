@@ -11,7 +11,6 @@ import { Field, Select } from "../components/ui/Field";
 import Button from "../components/ui/Button";
 import Callout from "../components/ui/Callout";
 import Modal from "../components/ui/Modal";
-import styles from "./settings/Shared.module.css";
 
 export default function NewAttendancePage() {
   const navigate = useNavigate();
@@ -30,16 +29,17 @@ export default function NewAttendancePage() {
   );
 
   const [date, setDate] = useState(todayISO());
-  const [classId, setClassId] = useState("");
+  const [classIds, setClassIds] = useState([]);
   const [subjectId, setSubjectId] = useState("");
   const [timeSlotId, setTimeSlotId] = useState("");
-  const [duplicate, setDuplicate] = useState(null);
+  const [duplicates, setDuplicates] = useState([]);
   const [checking, setChecking] = useState(false);
   const [confirmRetro, setConfirmRetro] = useState(false);
 
   useEffect(() => {
-    if (classes.length && !classId) setClassId(classes[0].id);
-  }, [classes, classId]);
+    if (classes.length && classIds.length === 0) setClassIds([classes[0].id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classes]);
   useEffect(() => {
     if (subjects.length && !subjectId) setSubjectId(subjects[0].id);
   }, [subjects, subjectId]);
@@ -47,23 +47,37 @@ export default function NewAttendancePage() {
     if (timeSlots.length && !timeSlotId) setTimeSlotId(timeSlots[0].id);
   }, [timeSlots, timeSlotId]);
 
+  function toggleClass(id) {
+    setClassIds((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]));
+  }
+
+  const classIdsKey = classIds.join(",");
   useEffect(() => {
-    if (!classId || !subjectId || !timeSlotId || !date) return;
+    if (classIds.length === 0 || !subjectId || !timeSlotId || !date) {
+      setDuplicates([]);
+      return;
+    }
     let cancelled = false;
     setChecking(true);
-    checkExistingRecord({ date, classId, subjectId, timeSlotId }).then((res) => {
-      if (!cancelled) {
-        setDuplicate(res);
+    Promise.all(classIds.map((classId) => checkExistingRecord({ date, classId, subjectId, timeSlotId }))).then(
+      (results) => {
+        if (cancelled) return;
+        setDuplicates(
+          results
+            .map((record, i) => ({ classId: classIds[i], record }))
+            .filter((d) => d.record),
+        );
         setChecking(false);
-      }
-    });
+      },
+    );
     return () => {
       cancelled = true;
     };
-  }, [classId, subjectId, timeSlotId, date]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classIdsKey, subjectId, timeSlotId, date]);
 
   const isToday = date === todayISO();
-  const canOpen = !duplicate && !checking && classId && subjectId && timeSlotId;
+  const canOpen = duplicates.length === 0 && !checking && classIds.length > 0 && subjectId && timeSlotId;
 
   const quickDates = useMemo(
     () => [
@@ -75,7 +89,7 @@ export default function NewAttendancePage() {
 
   function openSheet() {
     navigate(
-      `/appel/prendre?date=${date}&classId=${classId}&subjectId=${subjectId}&timeSlotId=${timeSlotId}`,
+      `/appel/prendre?date=${date}&classIds=${classIds.join(",")}&subjectId=${subjectId}&timeSlotId=${timeSlotId}`,
     );
   }
 
@@ -130,26 +144,32 @@ export default function NewAttendancePage() {
           )}
         </div>
 
-        <div className={styles.responsiveFormGrid} style={{ gridTemplateColumns: "1fr 1fr", gap: 18 }}>
-          <Field label="Classe">
-            <Select value={classId} onChange={(e) => setClassId(e.target.value)}>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Matière">
-            <Select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
-              {subjects.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
+        <div>
+          <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+            Classe(s)
+          </label>
+          <p style={{ fontSize: 13, color: "var(--color-ink-soft)", margin: "0 0 10px" }}>
+            Sélectionne plusieurs classes si tu fais l'appel pour un groupe réuni (co-enseignement,
+            option…) : une liste unique s'ouvrira, regroupée par classe.
+          </p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {classes.map((c) => (
+              <Pill key={c.id} active={classIds.includes(c.id)} onClick={() => toggleClass(c.id)}>
+                {c.name}
+              </Pill>
+            ))}
+          </div>
         </div>
+
+        <Field label="Matière">
+          <Select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
+            {subjects.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
 
         {classes.length === 0 && (
           <Callout tone="warning">
@@ -182,10 +202,16 @@ export default function NewAttendancePage() {
           </div>
         </div>
 
-        {duplicate && (
+        {duplicates.length > 0 && (
           <Callout tone="danger">
-            <strong>Appel déjà enregistré</strong> pour cette classe, cette matière et ce créneau,
-            par {duplicate.authorName}. Tu ne peux pas en créer un second.
+            <strong>Appel déjà enregistré</strong> pour cette matière et ce créneau, pour{" "}
+            {duplicates
+              .map((d) => {
+                const c = classes.find((cl) => cl.id === d.classId);
+                return `${c?.name || "?"} (par ${d.record.authorName})`;
+              })
+              .join(", ")}
+            . Désélectionne cette classe ou change de créneau pour continuer.
           </Callout>
         )}
       </div>
