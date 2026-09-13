@@ -36,6 +36,7 @@ function aggregateSubjectHours({ students, subjects, records }) {
     for (const entry of record.entries || []) {
       const subjectAgg = byStudent.get(entry.studentId)?.get(record.subjectId);
       if (!subjectAgg) continue;
+      if (entry.status === STATUS.NA) continue;
 
       const due = sessionMinutes;
       const seen =

@@ -35,10 +35,15 @@ export async function createClass({ name }) {
   await addDoc(classesRef, {
     name: name.trim(),
     archived: false,
+    defaultStatusNA: false,
     createdAt: serverTimestamp(),
   });
 }
 
 export async function archiveClass(classId) {
   await updateDoc(doc(db, "classes", classId), { archived: true });
+}
+
+export async function setClassDefaultStatusNA(classId, defaultStatusNA) {
+  await updateDoc(doc(db, "classes", classId), { defaultStatusNA });
 }

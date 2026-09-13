@@ -49,6 +49,8 @@ export default function CorrectionPage() {
       const cur = prev[studentId] || { status: STATUS.PRESENT, minutesMissed: 0, minutesPresent: null, reason: null };
       if (status === STATUS.PRESENT)
         return { ...prev, [studentId]: { status: STATUS.PRESENT, minutesMissed: 0, minutesPresent: null, reason: null } };
+      if (status === STATUS.NA)
+        return { ...prev, [studentId]: { status: STATUS.NA, minutesMissed: 0, minutesPresent: null, reason: null } };
       if (status === STATUS.LATE)
         return {
           ...prev,
@@ -110,9 +112,9 @@ export default function CorrectionPage() {
         entries: entries.map((e) => ({
           studentId: e.studentId,
           status: e.status,
-          minutesMissed: e.status === STATUS.PRESENT || e.status === STATUS.PARTIAL ? 0 : e.minutesMissed,
+          minutesMissed: e.status === STATUS.PRESENT || e.status === STATUS.PARTIAL || e.status === STATUS.NA ? 0 : e.minutesMissed,
           minutesPresent: e.status === STATUS.PARTIAL ? e.minutesPresent : null,
-          reason: e.status === STATUS.PRESENT ? null : e.reason,
+          reason: e.status === STATUS.PRESENT || e.status === STATUS.NA ? null : e.reason,
         })),
       });
       navigate("/registre");
@@ -173,9 +175,12 @@ export default function CorrectionPage() {
                   <Pill size="sm" tone="red" active={entry.status === STATUS.ABSENT} onClick={() => setStatus(s.id, STATUS.ABSENT)}>
                     Absent
                   </Pill>
+                  <Pill size="sm" active={entry.status === STATUS.NA} onClick={() => setStatus(s.id, STATUS.NA)}>
+                    N/A
+                  </Pill>
                 </div>
               </div>
-              {entry.status !== STATUS.PRESENT && (
+              {entry.status !== STATUS.PRESENT && entry.status !== STATUS.NA && (
                 <div className="animate-pop" style={{ marginTop: 12, marginLeft: 48, display: "grid", gap: 10 }}>
                   {(isLate || isPartial) && (
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>

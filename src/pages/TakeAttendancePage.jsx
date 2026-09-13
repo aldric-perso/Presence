@@ -13,8 +13,13 @@ import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
 import styles from "./TakeAttendancePage.module.css";
 
-function defaultEntry() {
-  return { status: STATUS.PRESENT, minutesMissed: 0, minutesPresent: null, reason: null };
+function defaultEntry(classe) {
+  return {
+    status: classe?.defaultStatusNA ? STATUS.NA : STATUS.PRESENT,
+    minutesMissed: 0,
+    minutesPresent: null,
+    reason: null,
+  };
 }
 
 export default function TakeAttendancePage() {
@@ -46,18 +51,21 @@ export default function TakeAttendancePage() {
       setRoll((prev) => {
         const next = { ...prev };
         students.forEach((s) => {
-          if (!next[s.id]) next[s.id] = defaultEntry();
+          if (!next[s.id]) next[s.id] = defaultEntry(classe);
         });
         return next;
       });
     }
-  }, [students, studentsLoading]);
+  }, [students, studentsLoading, classe]);
 
   function setStatus(studentId, status) {
     setRoll((prev) => {
-      const cur = prev[studentId] || defaultEntry();
+      const cur = prev[studentId] || defaultEntry(classe);
       if (status === STATUS.PRESENT) {
         return { ...prev, [studentId]: { status: STATUS.PRESENT, minutesMissed: 0, minutesPresent: null, reason: null } };
+      }
+      if (status === STATUS.NA) {
+        return { ...prev, [studentId]: { status: STATUS.NA, minutesMissed: 0, minutesPresent: null, reason: null } };
       }
       if (status === STATUS.LATE) {
         return {
@@ -93,17 +101,18 @@ export default function TakeAttendancePage() {
     setRoll((prev) => ({ ...prev, [studentId]: { ...prev[studentId], ...patch } }));
   }
 
-  const entries = students.map((s) => ({ studentId: s.id, ...(roll[s.id] || defaultEntry()) }));
+  const entries = students.map((s) => ({ studentId: s.id, ...(roll[s.id] || defaultEntry(classe)) }));
   const nbPresents = entries.filter((e) => e.status === STATUS.PRESENT).length;
   const nbPartiels = entries.filter((e) => e.status === STATUS.PARTIAL).length;
   const nbRetards = entries.filter((e) => e.status === STATUS.LATE).length;
   const nbAbsents = entries.filter((e) => e.status === STATUS.ABSENT).length;
-  const missingReasons = entries.filter((e) => e.status !== STATUS.PRESENT && !e.reason);
+  const nbNA = entries.filter((e) => e.status === STATUS.NA).length;
+  const missingReasons = entries.filter((e) => e.status !== STATUS.PRESENT && e.status !== STATUS.NA && !e.reason);
   const canValidate = missingReasons.length === 0 && entries.length > 0;
 
   const validationMsg = missingReasons.length
     ? `${missingReasons.length} motif(s) manquant(s) — la validation est bloquée.`
-    : `${nbPresents} présents, ${nbPartiels} présences partielles, ${nbRetards} retards, ${nbAbsents} absents. Prêt à enregistrer.`;
+    : `${nbPresents} présents, ${nbPartiels} présences partielles, ${nbRetards} retards, ${nbAbsents} absents, ${nbNA} N/A. Prêt à enregistrer.`;
 
   async function handleConfirmValidate() {
     setSubmitting(true);
@@ -117,9 +126,9 @@ export default function TakeAttendancePage() {
         entries: entries.map((e) => ({
           studentId: e.studentId,
           status: e.status,
-          minutesMissed: e.status === STATUS.PRESENT || e.status === STATUS.PARTIAL ? 0 : e.minutesMissed,
+          minutesMissed: e.status === STATUS.PRESENT || e.status === STATUS.PARTIAL || e.status === STATUS.NA ? 0 : e.minutesMissed,
           minutesPresent: e.status === STATUS.PARTIAL ? e.minutesPresent : null,
-          reason: e.status === STATUS.PRESENT ? null : e.reason,
+          reason: e.status === STATUS.PRESENT || e.status === STATUS.NA ? null : e.reason,
         })),
       });
       navigate("/");
@@ -178,14 +187,27 @@ export default function TakeAttendancePage() {
               </div>
               <div className={styles.countLabel}>absents</div>
             </div>
+            <div className={styles.countItem}>
+              <div className={styles.countValue}>{nbNA}</div>
+              <div className={styles.countLabel}>N/A</div>
+            </div>
           </div>
         </div>
       </div>
 
       <div className={styles.body}>
         <p className={styles.hint}>
-          Tout le monde est <strong style={{ color: "var(--color-green)" }}>présent par défaut</strong>.
-          Ne marque que les écarts.
+          {classe?.defaultStatusNA ? (
+            <>
+              Tout le monde est marqué <strong>N/A par défaut</strong> pour cette classe. Ne marque que les
+              écarts.
+            </>
+          ) : (
+            <>
+              Tout le monde est <strong style={{ color: "var(--color-green)" }}>présent par défaut</strong>.
+              Ne marque que les écarts.
+            </>
+          )}
         </p>
 
         {errorMsg && (
@@ -302,9 +324,12 @@ function RollRow({ student, entry, onSetStatus, onPatch, settings, sessionMinute
           <Pill tone="red" active={entry.status === STATUS.ABSENT} onClick={() => onSetStatus(STATUS.ABSENT)}>
             Absent
           </Pill>
+          <Pill active={entry.status === STATUS.NA} onClick={() => onSetStatus(STATUS.NA)}>
+            N/A
+          </Pill>
         </div>
       </div>
-      {entry.status !== STATUS.PRESENT && (
+      {entry.status !== STATUS.PRESENT && entry.status !== STATUS.NA && (
         <div className={[styles.detail, "animate-pop"].join(" ")}>
           <div className={styles.detailBox}>
             <ReasonPicker entry={entry} onPatch={onPatch} settings={settings} sessionMinutes={sessionMinutes} />

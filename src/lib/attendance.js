@@ -21,7 +21,7 @@ import { durationMinutes } from "./timeSlots";
 
 const recordsRef = collection(db, "attendanceRecords");
 
-export const STATUS = { PRESENT: "present", PARTIAL: "partiel", LATE: "retard", ABSENT: "absent" };
+export const STATUS = { PRESENT: "present", PARTIAL: "partiel", LATE: "retard", ABSENT: "absent", NA: "na" };
 
 /** Fenêtre pendant laquelle l'auteur d'un appel peut le corriger/supprimer sans passer par un admin. */
 export const EDIT_WINDOW_DAYS = 7;
@@ -83,7 +83,7 @@ function validateEntries(entries, sessionMinutes) {
     if (!e.studentId || !Object.values(STATUS).includes(e.status)) {
       throw new Error("Statut d'élève invalide.");
     }
-    if (e.status !== STATUS.PRESENT && !e.reason?.trim()) {
+    if (e.status !== STATUS.PRESENT && e.status !== STATUS.NA && !e.reason?.trim()) {
       throw new Error("Un motif est requis pour tout élève non présent.");
     }
     if (e.status === STATUS.LATE && (!Number.isFinite(e.minutesMissed) || e.minutesMissed <= 0 || e.minutesMissed >= sessionMinutes)) {
@@ -100,9 +100,13 @@ function cleanEntries(entries, sessionMinutes) {
     studentId: e.studentId,
     status: e.status,
     minutesMissed:
-      e.status === STATUS.PRESENT ? 0 : e.status === STATUS.ABSENT ? sessionMinutes : e.status === STATUS.PARTIAL ? 0 : e.minutesMissed,
+      e.status === STATUS.PRESENT || e.status === STATUS.PARTIAL || e.status === STATUS.NA
+        ? 0
+        : e.status === STATUS.ABSENT
+          ? sessionMinutes
+          : e.minutesMissed,
     minutesPresent: e.status === STATUS.PARTIAL ? e.minutesPresent : null,
-    reason: e.status === STATUS.PRESENT ? null : e.reason.trim(),
+    reason: e.status === STATUS.PRESENT || e.status === STATUS.NA ? null : e.reason.trim(),
   }));
 }
 
@@ -246,6 +250,7 @@ export function computeStudentStats({ students, records, seuil, reasonsLookup = 
     for (const entry of record.entries || []) {
       const agg = byStudent.get(entry.studentId);
       if (!agg) continue;
+      if (entry.status === STATUS.NA) continue;
 
       const due = sessionMinutes;
       const seen =

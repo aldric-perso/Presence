@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useClasses, createClass, archiveClass, findDuplicateClass } from "../../lib/classes";
+import { useClasses, createClass, archiveClass, setClassDefaultStatusNA, findDuplicateClass } from "../../lib/classes";
 import { useTeachers } from "../../lib/users";
 import { useStudents } from "../../lib/students";
 import { Field, TextInput } from "../../components/ui/Field";
@@ -47,21 +47,31 @@ export default function ClassesAdminTab({ isAdmin }) {
       )}
 
       <div className={["card", styles.listCard].join(" ")}>
-        <div className={[styles.tableHead, styles.tableWide].join(" ")} style={{ gridTemplateColumns: "1.3fr 0.7fr 1.6fr 100px" }}>
+        <div className={[styles.tableHead, styles.tableWide].join(" ")} style={{ gridTemplateColumns: "1.1fr 0.6fr 1.4fr 130px 100px" }}>
           <span>Classe</span>
           <span>Effectif</span>
           <span>Enseignants affectés</span>
+          <span>N/A par défaut</span>
           <span></span>
         </div>
         {classes.map((c) => {
           const effectif = students.filter((s) => s.classId === c.id).length;
           const profs = teachers.filter((t) => (t.classIds || []).includes(c.id)).map((t) => t.displayName);
           return (
-            <div key={c.id} className={[styles.tableRow, styles.tableWide].join(" ")} style={{ gridTemplateColumns: "1.3fr 0.7fr 1.6fr 100px" }}>
+            <div key={c.id} className={[styles.tableRow, styles.tableWide].join(" ")} style={{ gridTemplateColumns: "1.1fr 0.6fr 1.4fr 130px 100px" }}>
               <span style={{ fontWeight: 600 }}>{c.name}</span>
               <span style={{ color: "var(--color-ink-soft)" }}>{effectif} élèves</span>
               <span style={{ color: "var(--color-ink-soft)", fontSize: 13 }}>
                 {profs.join(", ") || "Aucun enseignant affecté"}
+              </span>
+              <span>
+                <input
+                  type="checkbox"
+                  checked={!!c.defaultStatusNA}
+                  disabled={!isAdmin}
+                  onChange={(e) => setClassDefaultStatusNA(c.id, e.target.checked)}
+                  style={{ width: 18, height: 18, cursor: isAdmin ? "pointer" : "default" }}
+                />
               </span>
               {isAdmin && (
                 <button
