@@ -37,10 +37,6 @@ export default function NewAttendancePage() {
   const [confirmRetro, setConfirmRetro] = useState(false);
 
   useEffect(() => {
-    if (classes.length && classIds.length === 0) setClassIds([classes[0].id]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [classes]);
-  useEffect(() => {
     if (subjects.length && !subjectId) setSubjectId(subjects[0].id);
   }, [subjects, subjectId]);
   useEffect(() => {
