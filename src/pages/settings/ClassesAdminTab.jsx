@@ -15,6 +15,7 @@ export default function ClassesAdminTab({ isAdmin }) {
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
   const [pendingArchive, setPendingArchive] = useState(null);
+  const [pendingStatusNA, setPendingStatusNA] = useState(null);
 
   async function handleCreate() {
     if (!name.trim()) return;
@@ -69,7 +70,7 @@ export default function ClassesAdminTab({ isAdmin }) {
                   type="checkbox"
                   checked={!!c.defaultStatusNA}
                   disabled={!isAdmin}
-                  onChange={(e) => setClassDefaultStatusNA(c.id, e.target.checked)}
+                  onChange={(e) => setPendingStatusNA({ classe: c, nextValue: e.target.checked })}
                   style={{ width: 18, height: 18, cursor: isAdmin ? "pointer" : "default" }}
                 />
               </span>
@@ -99,6 +100,29 @@ export default function ClassesAdminTab({ isAdmin }) {
           onConfirm={async () => {
             await archiveClass(pendingArchive.id);
             setPendingArchive(null);
+          }}
+        />
+      )}
+
+      {pendingStatusNA && (
+        <Modal
+          kicker="Paramètre de classe"
+          title={
+            pendingStatusNA.nextValue
+              ? `Marquer « ${pendingStatusNA.classe.name} » N/A par défaut ?`
+              : `Revenir à « présent » par défaut pour « ${pendingStatusNA.classe.name} » ?`
+          }
+          text={
+            pendingStatusNA.nextValue
+              ? "À chaque nouvel appel pour cette classe, les élèves seront pré-cochés N/A au lieu de présents. Les appels déjà enregistrés ne sont pas modifiés."
+              : "À chaque nouvel appel pour cette classe, les élèves seront de nouveau pré-cochés présents. Les appels déjà enregistrés ne sont pas modifiés."
+          }
+          confirmLabel={pendingStatusNA.nextValue ? "Activer" : "Désactiver"}
+          cancelLabel="Annuler"
+          onCancel={() => setPendingStatusNA(null)}
+          onConfirm={async () => {
+            await setClassDefaultStatusNA(pendingStatusNA.classe.id, pendingStatusNA.nextValue);
+            setPendingStatusNA(null);
           }}
         />
       )}
