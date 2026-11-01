@@ -6,11 +6,12 @@ import { useSubjects } from "../lib/subjects";
 import { useAllRecords, computeStudentStats } from "../lib/attendance";
 import { exportStudentTrackingExcel } from "../lib/studentTrackingExport";
 import { useSettings, buildReasonsLookup } from "../lib/settings";
-import { formatDateShort, todayISO, schoolYearStartISO } from "../lib/dates";
+import { formatDateShort, todayISO, schoolYearStartISO, currentSchoolYear, schoolYearLabel, schoolYearOf } from "../lib/dates";
 import { normalize } from "../lib/ids";
 import Button from "../components/ui/Button";
 import Badge from "../components/ui/Badge";
-import { Field, TextInput } from "../components/ui/Field";
+import { Field, Select, TextInput } from "../components/ui/Field";
+import Modal from "../components/ui/Modal";
 import ProgressBar from "../components/ui/ProgressBar";
 import Ring from "../components/ui/Ring";
 import styles from "./StudentsPage.module.css";
@@ -29,8 +30,21 @@ export default function StudentsPage() {
   const [endDate, setEndDate] = useState(() => todayISO());
   const [mobileShowDetail, setMobileShowDetail] = useState(() => !!params.get("id"));
   const [exporting, setExporting] = useState(false);
+  const [exportYear, setExportYear] = useState(null); // non nul = fenêtre de choix de l'année scolaire ouverte
+
+  // Années scolaires (1er septembre – 15 juillet) ayant au moins un appel, plus l'année en cours.
+  const schoolYears = useMemo(() => {
+    const years = new Set([currentSchoolYear()]);
+    for (const r of records) {
+      const y = schoolYearOf(r.date);
+      if (y !== null) years.add(y);
+    }
+    return [...years].sort((a, b) => b - a);
+  }, [records]);
 
   async function handleExportExcel() {
+    const schoolYear = exportYear;
+    setExportYear(null);
     setExporting(true);
     try {
       await exportStudentTrackingExcel({
@@ -40,6 +54,7 @@ export default function StudentsPage() {
         records,
         startDate,
         endDate,
+        schoolYear,
         reasonsLookup: buildReasonsLookup(settings),
         threshold: settings.presenceThreshold,
       });
@@ -96,12 +111,35 @@ export default function StudentsPage() {
         <Button
           variant="ghost"
           className={styles.desktopOnly}
-          onClick={handleExportExcel}
+          onClick={() => setExportYear(currentSchoolYear())}
           disabled={!students.length || !subjects.length || exporting}
         >
           {exporting ? "Export en cours…" : "Exporter en Excel"}
         </Button>
       </div>
+
+      {exportYear !== null && (
+        <Modal
+          kicker="Export Excel"
+          title="Quelle année scolaire exporter ?"
+          text="Le fichier contient les appels du 1er septembre au 15 juillet de l'année choisie. La période affichée se règle ensuite dans son onglet Paramètres."
+          detail={
+            <Field label="Année scolaire">
+              <Select value={exportYear} onChange={(e) => setExportYear(Number(e.target.value))}>
+                {schoolYears.map((y) => (
+                  <option key={y} value={y}>
+                    {schoolYearLabel(y)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          }
+          confirmLabel="Exporter"
+          cancelLabel="Annuler"
+          onConfirm={handleExportExcel}
+          onCancel={() => setExportYear(null)}
+        />
+      )}
 
       <div className={["card", styles.periodBar].join(" ")}>
         <Field label="Du">

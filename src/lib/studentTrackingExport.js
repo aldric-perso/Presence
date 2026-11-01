@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 import { STATUS } from "./attendance";
 import { SESSION_MINUTES } from "./subjects";
 import { defaultReferenceHours } from "./scolariteDefaults";
+import { currentSchoolYear, schoolYearLabel, schoolYearOf, schoolYearRange, todayISO } from "./dates";
 
 const PARAMS_SHEET = "Paramètres";
 const DATA_SHEET = "Données";
@@ -249,7 +250,7 @@ function noteCell(cell, text) {
  * Crée l'onglet Paramètres (période, réglages, heures de référence par classe) et renvoie, pour
  * chaque classe, la cellule de chaque matière à laquelle les onglets de classe se relient.
  */
-function buildParamsSheet(workbook, { classGroups, subjects, startSerial, endSerial, weeks, threshold, dataRange }) {
+function buildParamsSheet(workbook, { classGroups, subjects, startSerial, endSerial, weeks, threshold, dataRange, schoolYear }) {
   const sheet = workbook.addWorksheet(PARAMS_SHEET, {
     properties: { tabColor: { argb: "FFE0A100" } },
     views: [{ showGridLines: false }],
@@ -263,6 +264,7 @@ function buildParamsSheet(workbook, { classGroups, subjects, startSerial, endSer
   sheet.getCell("A1").font = { name: FONT_NAME, bold: true, size: 20, color: { argb: COLOR.navy } };
   sheet.getRow(1).height = 34;
   noteCell(sheet.getCell("A2"), "Modifiez les cellules à fond jaune : tous les onglets se recalculent automatiquement.");
+  noteCell(sheet.getCell("A3"), `Année scolaire ${schoolYearLabel(schoolYear)} (du 1er septembre au 15 juillet) : seuls les appels de cette année sont dans le fichier.`);
 
   // --- Période ---
   sectionBand(sheet, 4, "PÉRIODE AFFICHÉE", lastCol);
@@ -288,7 +290,7 @@ function buildParamsSheet(workbook, { classGroups, subjects, startSerial, endSer
   sheet.getCell("B9").numFmt = "0.0";
   noteCell(sheet.getCell("C9"), "Diviseur des « moyennes d'heures par semaine ».");
 
-  labelCell(sheet.getCell("A10"), "Appels enregistrés dans l'app");
+  labelCell(sheet.getCell("A10"), "Appels disponibles dans le fichier");
   sheet.getCell("B10").value = fx(`IF(COUNT('${DATA_SHEET}'!$A:$A)=0,"",MIN('${DATA_SHEET}'!$A:$A))`, dataRange?.min ?? "");
   sheet.getCell("B10").numFmt = FMT_DATE;
   sheet.getCell("C10").value = "au";
@@ -315,8 +317,10 @@ function buildParamsSheet(workbook, { classGroups, subjects, startSerial, endSer
   noteCell(sheet.getCell("A17"), "Ordinaire = heures hebdo en scolarité ordinaire (colonne B des onglets de classe).");
   noteCell(sheet.getCell("A18"), "UE = heures hebdo prévues pour un élève en UE (colonne C). Valeurs de départ : modèle 2026-2027.");
 
-  const headRow = 19;
-  const subHeadRow = 20;
+  noteCell(sheet.getCell("A19"), "Une matière à 0 en Ordinaire et en UE est masquée dans l'onglet de la classe (lignes masquées à la création du fichier).");
+
+  const headRow = 20;
+  const subHeadRow = 21;
   sheet.mergeCells(headRow, 1, subHeadRow, 1);
   sheet.getCell(headRow, 1).value = "Matière";
   const firstSubjectRow = subHeadRow + 1;
@@ -476,7 +480,7 @@ function fillConditionalRate(sheet, ref, topLeft, state) {
 }
 
 function writeStudentBlock(sheet, startRow, ctx) {
-  const { student, label, className, subjects, params, weeks, hourMinutes, startSerial, endSerial, summary, cf } = ctx;
+  const { student, label, className, subjects, hiddenSubjectIds, params, weeks, hourMinutes, startSerial, endSerial, summary, cf } = ctx;
   let row = startRow;
 
   // --- Bandeau nominatif (la cellule A porte la clé de recherche des formules) ---
@@ -580,9 +584,12 @@ function writeStudentBlock(sheet, startRow, ctx) {
   // --- Une ligne par matière ---
   const firstRow = row;
   const sums = { b: 0, c: 0, d: 0, g: 0, h: 0, due: 0, seen: 0 };
-  subjects.forEach((subject, i) => {
+  let visibleIndex = 0;
+  subjects.forEach((subject) => {
     const r = sheet.getRow(row);
     r.height = 20;
+    r.hidden = hiddenSubjectIds.has(subject.id);
+    const i = r.hidden ? visibleIndex : visibleIndex++; // alternance des fonds sur les seules lignes visibles
     const ref = params.get(subject.id);
     const { due, seen } = summary.hours.get(`${label}\u0000${subject.name}`) || { due: 0, seen: 0 };
 
@@ -709,6 +716,12 @@ function buildClassSheet(workbook, usedNames, ctx) {
     properties: { tabColor: { argb: COLOR.navy } },
     views: [{ showGridLines: false }],
   });
+  // Matières sans aucune heure de référence pour cette classe : lignes masquées. Si la classe n'a
+  // aucune heure de référence du tout (classe inconnue du modèle), on ne masque rien plutôt que de
+  // livrer des tableaux vides.
+  const noHours = (s) => params.get(s.id).bValue === 0 && params.get(s.id).cValue === 0;
+  const hiddenSubjectIds = subjects.every(noHours) ? new Set() : new Set(subjects.filter(noHours).map((s) => s.id));
+
   const widths = [36, 15, 17, 14, 17, 14, 17, 20, 3, 12, 12];
   widths.forEach((w, i) => (sheet.getColumn(i + 1).width = w));
 
@@ -729,6 +742,7 @@ function buildClassSheet(workbook, usedNames, ctx) {
       label: labels.get(student.id),
       className: group.className,
       subjects,
+      hiddenSubjectIds,
       params,
       weeks,
       hourMinutes,
@@ -757,14 +771,38 @@ function buildClassSheet(workbook, usedNames, ctx) {
 /**
  * Construit le classeur sans le télécharger (séparé de l'export pour pouvoir être testé hors navigateur).
  *
- * Le classeur est « vivant » : l'onglet Données contient tous les appels, l'onglet Paramètres porte la
- * période, les réglages et les heures de référence par classe, et chaque onglet de classe se calcule par
- * formules à partir de ces deux sources. Les valeurs en cache correspondent à la période choisie dans l'app,
- * pour que le fichier s'affiche correctement même dans un lecteur qui ne recalcule pas (aperçu, mode protégé).
+ * Le classeur est « vivant » : l'onglet Données contient les appels de l'année scolaire choisie (du 1er
+ * septembre au 15 juillet), l'onglet Paramètres porte la période, les réglages et les heures de référence
+ * par classe, et chaque onglet de classe se calcule par formules à partir de ces deux sources. Les valeurs
+ * en cache correspondent à la période par défaut, pour que le fichier s'affiche correctement même dans un
+ * lecteur qui ne recalcule pas (aperçu, mode protégé).
+ *
+ * La période par défaut est celle de l'app ramenée à l'année scolaire ; si elles ne se recoupent pas, on
+ * prend la rentrée jusqu'à aujourd'hui (ou jusqu'au 15 juillet pour une année terminée).
  */
-export function buildTrackingWorkbook({ students, classes, subjects, records, startDate, endDate, reasonsLookup = new Map(), threshold = 80 }) {
-  const start = startDate <= endDate ? startDate : endDate;
-  const end = startDate <= endDate ? endDate : startDate;
+export function buildTrackingWorkbook({
+  students,
+  classes,
+  subjects,
+  records: allRecords,
+  startDate,
+  endDate,
+  schoolYear = schoolYearOf(endDate) ?? currentSchoolYear(),
+  reasonsLookup = new Map(),
+  threshold = 80,
+}) {
+  const { start: yearStart, end: yearEnd } = schoolYearRange(schoolYear);
+  const records = allRecords.filter((r) => r.date >= yearStart && r.date <= yearEnd);
+
+  const wantedStart = startDate <= endDate ? startDate : endDate;
+  const wantedEnd = startDate <= endDate ? endDate : startDate;
+  let start = wantedStart > yearStart ? wantedStart : yearStart;
+  let end = wantedEnd < yearEnd ? wantedEnd : yearEnd;
+  if (start > end) {
+    start = yearStart;
+    end = todayISO() < yearEnd ? todayISO() : yearEnd;
+    if (end < start) end = yearEnd;
+  }
   const startSerial = excelSerial(start);
   const endSerial = excelSerial(end);
   const weeks = weeksBetween(start, end);
@@ -807,6 +845,7 @@ export function buildTrackingWorkbook({ students, classes, subjects, records, st
     weeks,
     threshold: threshold / 100,
     dataRange,
+    schoolYear,
   });
   const cf = { priority: 1 };
   for (const group of classGroups) {
@@ -825,7 +864,7 @@ export function buildTrackingWorkbook({ students, classes, subjects, records, st
   }
   buildDataSheet(workbook, rows);
 
-  return { workbook, start, end };
+  return { workbook, schoolYear };
 }
 
 /**
@@ -836,7 +875,7 @@ export function buildTrackingWorkbook({ students, classes, subjects, records, st
 export async function exportStudentTrackingExcel(args) {
   if (args.students.length === 0 || args.subjects.length === 0) return;
 
-  const { workbook, start, end } = buildTrackingWorkbook(args);
+  const { workbook, schoolYear } = buildTrackingWorkbook(args);
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -844,7 +883,7 @@ export async function exportStudentTrackingExcel(args) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `suivi_eleves_${start}_${end}.xlsx`;
+  a.download = `suivi_eleves_${schoolYearLabel(schoolYear)}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
 }
