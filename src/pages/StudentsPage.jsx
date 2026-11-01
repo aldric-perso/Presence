@@ -33,7 +33,16 @@ export default function StudentsPage() {
   async function handleExportExcel() {
     setExporting(true);
     try {
-      await exportStudentTrackingExcel({ students, classes, subjects, records, startDate, endDate });
+      await exportStudentTrackingExcel({
+        students,
+        classes,
+        subjects,
+        records,
+        startDate,
+        endDate,
+        reasonsLookup: buildReasonsLookup(settings),
+        threshold: settings.presenceThreshold,
+      });
     } finally {
       setExporting(false);
     }
