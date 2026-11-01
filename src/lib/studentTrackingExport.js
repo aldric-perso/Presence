@@ -2,7 +2,7 @@ import ExcelJS from "exceljs";
 import { STATUS } from "./attendance";
 import { SESSION_MINUTES } from "./subjects";
 import { defaultReferenceHours } from "./scolariteDefaults";
-import { currentSchoolYear, schoolYearLabel, schoolYearOf, schoolYearRange, todayISO } from "./dates";
+import { schoolYearLabel, schoolYearOf, schoolYearRange, todayISO } from "./dates";
 
 const PARAMS_SHEET = "Paramètres";
 const DATA_SHEET = "Données";
@@ -264,7 +264,7 @@ function buildParamsSheet(workbook, { classGroups, subjects, startSerial, endSer
   sheet.getCell("A1").font = { name: FONT_NAME, bold: true, size: 20, color: { argb: COLOR.navy } };
   sheet.getRow(1).height = 34;
   noteCell(sheet.getCell("A2"), "Modifiez les cellules à fond jaune : tous les onglets se recalculent automatiquement.");
-  noteCell(sheet.getCell("A3"), `Année scolaire ${schoolYearLabel(schoolYear)} (du 1er septembre au 15 juillet) : seuls les appels de cette année sont dans le fichier.`);
+  noteCell(sheet.getCell("A3"), `Année scolaire ${schoolYearLabel(schoolYear)} (du 1er septembre au 31 août) : seuls les appels de cette année sont dans le fichier.`);
 
   // --- Période ---
   sectionBand(sheet, 4, "PÉRIODE AFFICHÉE", lastCol);
@@ -317,7 +317,7 @@ function buildParamsSheet(workbook, { classGroups, subjects, startSerial, endSer
   noteCell(sheet.getCell("A17"), "Ordinaire = heures hebdo en scolarité ordinaire (colonne B des onglets de classe).");
   noteCell(sheet.getCell("A18"), "UE = heures hebdo prévues pour un élève en UE (colonne C). Valeurs de départ : modèle 2026-2027.");
 
-  noteCell(sheet.getCell("A19"), "Une matière à 0 en Ordinaire et en UE est masquée dans l'onglet de la classe (lignes masquées à la création du fichier).");
+  noteCell(sheet.getCell("A19"), "Une matière à 0 en Ordinaire et en UE est masquée dans l'onglet de la classe, sauf pour un élève qui a eu cours dans cette matière.");
 
   const headRow = 20;
   const subHeadRow = 21;
@@ -480,7 +480,7 @@ function fillConditionalRate(sheet, ref, topLeft, state) {
 }
 
 function writeStudentBlock(sheet, startRow, ctx) {
-  const { student, label, className, subjects, hiddenSubjectIds, params, weeks, hourMinutes, startSerial, endSerial, summary, cf } = ctx;
+  const { student, label, className, subjects, hiddenSubjectIds, taughtKeys, params, weeks, hourMinutes, startSerial, endSerial, summary, cf } = ctx;
   let row = startRow;
 
   // --- Bandeau nominatif (la cellule A porte la clé de recherche des formules) ---
@@ -588,7 +588,8 @@ function writeStudentBlock(sheet, startRow, ctx) {
   subjects.forEach((subject) => {
     const r = sheet.getRow(row);
     r.height = 20;
-    r.hidden = hiddenSubjectIds.has(subject.id);
+    // Une matière non prévue reste affichée pour l'élève qui y a quand même eu cours.
+    r.hidden = hiddenSubjectIds.has(subject.id) && !taughtKeys.has(`${label}\u0000${subject.name}`);
     const i = r.hidden ? visibleIndex : visibleIndex++; // alternance des fonds sur les seules lignes visibles
     const ref = params.get(subject.id);
     const { due, seen } = summary.hours.get(`${label}\u0000${subject.name}`) || { due: 0, seen: 0 };
@@ -711,7 +712,7 @@ function writeStudentBlock(sheet, startRow, ctx) {
 }
 
 function buildClassSheet(workbook, usedNames, ctx) {
-  const { group, subjects, labels, summary, params, weeks, hourMinutes, startSerial, endSerial, cf } = ctx;
+  const { group, subjects, labels, summary, taughtKeys, params, weeks, hourMinutes, startSerial, endSerial, cf } = ctx;
   const sheet = workbook.addWorksheet(uniqueSheetName(usedNames, group.className), {
     properties: { tabColor: { argb: COLOR.navy } },
     views: [{ showGridLines: false }],
@@ -743,6 +744,7 @@ function buildClassSheet(workbook, usedNames, ctx) {
       className: group.className,
       subjects,
       hiddenSubjectIds,
+      taughtKeys,
       params,
       weeks,
       hourMinutes,
@@ -772,13 +774,13 @@ function buildClassSheet(workbook, usedNames, ctx) {
  * Construit le classeur sans le télécharger (séparé de l'export pour pouvoir être testé hors navigateur).
  *
  * Le classeur est « vivant » : l'onglet Données contient les appels de l'année scolaire choisie (du 1er
- * septembre au 15 juillet), l'onglet Paramètres porte la période, les réglages et les heures de référence
+ * septembre au 31 août), l'onglet Paramètres porte la période, les réglages et les heures de référence
  * par classe, et chaque onglet de classe se calcule par formules à partir de ces deux sources. Les valeurs
  * en cache correspondent à la période par défaut, pour que le fichier s'affiche correctement même dans un
  * lecteur qui ne recalcule pas (aperçu, mode protégé).
  *
  * La période par défaut est celle de l'app ramenée à l'année scolaire ; si elles ne se recoupent pas, on
- * prend la rentrée jusqu'à aujourd'hui (ou jusqu'au 15 juillet pour une année terminée).
+ * prend la rentrée jusqu'à aujourd'hui (ou jusqu'au 31 août pour une année terminée).
  */
 export function buildTrackingWorkbook({
   students,
@@ -787,7 +789,7 @@ export function buildTrackingWorkbook({
   records: allRecords,
   startDate,
   endDate,
-  schoolYear = schoolYearOf(endDate) ?? currentSchoolYear(),
+  schoolYear = schoolYearOf(endDate),
   reasonsLookup = new Map(),
   threshold = 80,
 }) {
@@ -828,6 +830,8 @@ export function buildTrackingWorkbook({
 
   const rows = buildDataRows({ students, subjects, records, labels, reasonsLookup });
   const summary = summarisePeriod(rows, startSerial, endSerial);
+  // Élève × matière ayant au moins une séance sur l'année (pas seulement la période), pour ne pas masquer ces lignes.
+  const taughtKeys = new Set(rows.map((r) => `${r.student}\u0000${r.subject}`));
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Cahier d'appel";
@@ -854,6 +858,7 @@ export function buildTrackingWorkbook({
       subjects,
       labels,
       summary,
+      taughtKeys,
       params: refs.get(group.key),
       weeks,
       hourMinutes: SESSION_MINUTES,

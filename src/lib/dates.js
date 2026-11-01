@@ -24,9 +24,9 @@ export function currentSchoolYear() {
   return Number(schoolYearStartISO().slice(0, 4));
 }
 
-/** Année scolaire "2026" = du 1er septembre 2026 au 15 juillet 2027. */
+/** Année scolaire "2026" = du 1er septembre 2026 au 31 août 2027. */
 export function schoolYearRange(year) {
-  return { start: `${year}-09-01`, end: `${year + 1}-07-15` };
+  return { start: `${year}-09-01`, end: `${year + 1}-08-31` };
 }
 
 /** "2026-2027" */
@@ -34,13 +34,10 @@ export function schoolYearLabel(year) {
   return `${year}-${year + 1}`;
 }
 
-/** Année de rentrée dont la date ISO fait partie, ou null entre le 16 juillet et le 31 août (hors année scolaire). */
+/** Année de rentrée dont la date ISO fait partie (septembre → août). */
 export function schoolYearOf(isoDate) {
   const year = Number(isoDate.slice(0, 4));
-  const monthDay = isoDate.slice(5);
-  if (monthDay >= "09-01") return year;
-  if (monthDay <= "07-15") return year - 1;
-  return null;
+  return isoDate.slice(5) >= "09-01" ? year : year - 1;
 }
 
 /** "Lundi 2 février 2026" à partir d'une date ISO YYYY-MM-DD. */

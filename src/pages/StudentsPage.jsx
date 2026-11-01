@@ -32,12 +32,11 @@ export default function StudentsPage() {
   const [exporting, setExporting] = useState(false);
   const [exportYear, setExportYear] = useState(null); // non nul = fenêtre de choix de l'année scolaire ouverte
 
-  // Années scolaires (1er septembre – 15 juillet) ayant au moins un appel, plus l'année en cours.
+  // Années scolaires (1er septembre – 31 août) ayant au moins un appel, plus l'année en cours.
   const schoolYears = useMemo(() => {
     const years = new Set([currentSchoolYear()]);
     for (const r of records) {
-      const y = schoolYearOf(r.date);
-      if (y !== null) years.add(y);
+      years.add(schoolYearOf(r.date));
     }
     return [...years].sort((a, b) => b - a);
   }, [records]);
@@ -122,7 +121,7 @@ export default function StudentsPage() {
         <Modal
           kicker="Export Excel"
           title="Quelle année scolaire exporter ?"
-          text="Le fichier contient les appels du 1er septembre au 15 juillet de l'année choisie. La période affichée se règle ensuite dans son onglet Paramètres."
+          text="Le fichier contient les appels du 1er septembre au 31 août de l'année choisie. La période affichée se règle ensuite dans son onglet Paramètres."
           detail={
             <Field label="Année scolaire">
               <Select value={exportYear} onChange={(e) => setExportYear(Number(e.target.value))}>
