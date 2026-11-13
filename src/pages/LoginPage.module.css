@@ -13,6 +13,40 @@
   justify-content: space-between;
 }
 
+/* Thème saisonnier actif : dégradé de la période, particules et liseré décoratif en haut. */
+.hero.seasonal {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--season-hero-bg);
+}
+.hero.seasonal::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: var(--season-strip);
+  z-index: 1;
+}
+.hero.seasonal > :not(:first-child) {
+  position: relative;
+  z-index: 1;
+}
+.seasonChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 18px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -22,7 +56,7 @@
   width: 26px;
   height: 26px;
   border-radius: 8px;
-  background: var(--color-green);
+  background: var(--brand);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -124,4 +158,10 @@
   .formSide {
     padding: 32px 24px 48px;
   }
+}
+
+/* Sur le dégradé saisonnier, les textes atténués du panneau sombre restent lisibles. */
+.hero.seasonal .tagline,
+.hero.seasonal .footNote {
+  color: rgba(255, 255, 255, 0.82);
 }

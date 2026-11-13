@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import { SeasonProvider } from "./context/SeasonContext";
 import { RequireAuth, RequireGuest } from "./components/RouteGuards";
 import Layout from "./components/Layout";
 import LoginPage from "./pages/LoginPage";
@@ -15,6 +16,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <SeasonProvider>
         <Routes>
           <Route
             path="/login"
@@ -44,6 +46,7 @@ export default function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </SeasonProvider>
       </AuthProvider>
     </BrowserRouter>
   );

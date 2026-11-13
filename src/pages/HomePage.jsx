@@ -6,6 +6,7 @@ import { useTodayRecords, STATUS } from "../lib/attendance";
 import { todayISO, formatDateLabel } from "../lib/dates";
 import Button from "../components/ui/Button";
 import StatTile from "../components/ui/StatTile";
+import { SeasonHero } from "../components/season/SeasonDecor";
 import styles from "./HomePage.module.css";
 
 export default function HomePage() {
@@ -29,11 +30,13 @@ export default function HomePage() {
 
   return (
     <div className="page">
-      <div className="eyebrow">{formatDateLabel(todayISO())}</div>
-      <h1>Bonjour {profile?.displayName?.split(" ")[0] || ""}.</h1>
-      <p className={styles.subtitle}>
-        {classes.length} classes actives · {students.length} élèves suivis à l'établissement.
-      </p>
+      <SeasonHero>
+        <div className="eyebrow">{formatDateLabel(todayISO())}</div>
+        <h1>Bonjour {profile?.displayName?.split(" ")[0] || ""}.</h1>
+        <p className={styles.subtitle}>
+          {classes.length} classes actives · {students.length} élèves suivis à l'établissement.
+        </p>
+      </SeasonHero>
 
       <div className={styles.statsGrid}>
         <StatTile label="Appels aujourd'hui" value={todayRecords.length} />

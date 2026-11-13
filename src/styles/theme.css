@@ -17,6 +17,14 @@
   --color-green-soft: #7fb8a4;
   --color-green-bg: #edf2ef;
 
+  /* Accent d'interface (liens, avatar, pastille de marque, focus). Par défaut = le vert ci-dessus,
+     mais redéfini par les thèmes saisonniers (cf. src/lib/seasons.js). --color-green, lui, reste
+     réservé au sens « présent / OK » et ne change jamais. */
+  --brand: var(--color-green);
+  --brand-dark: var(--color-green-dark);
+  --brand-soft: var(--color-green-soft);
+  --brand-bg: var(--color-green-bg);
+
   --color-amber: #b07b23;
   --color-amber-dark: #7a5312;
   --color-amber-bg: #fdf4e7;

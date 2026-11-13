@@ -2,15 +2,18 @@ import { useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { linkWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { useAuth } from "../context/AuthContext";
+import { useSeason } from "../context/SeasonContext";
 import Callout from "../components/ui/Callout";
 import Button from "../components/ui/Button";
 import Avatar from "../components/ui/Avatar";
+import Switch from "../components/ui/Switch";
 import styles from "./settings/Shared.module.css";
 import StudentsAdminTab from "./settings/StudentsAdminTab";
 import ClassesAdminTab from "./settings/ClassesAdminTab";
 import SubjectsAdminTab from "./settings/SubjectsAdminTab";
 import TeachersAdminTab from "./settings/TeachersAdminTab";
 import ScheduleTab from "./settings/ScheduleTab";
+import AppearanceTab from "./settings/AppearanceTab";
 
 const TABS = [
   { key: "eleves", label: "Élèves", Component: StudentsAdminTab },
@@ -18,6 +21,7 @@ const TABS = [
   { key: "matieres", label: "Matières", Component: SubjectsAdminTab },
   { key: "enseignants", label: "Enseignants & admins", Component: TeachersAdminTab },
   { key: "horaires", label: "Horaires & seuil", Component: ScheduleTab },
+  { key: "apparence", label: "Apparence", Component: AppearanceTab },
 ];
 
 export default function SettingsPage() {
@@ -26,6 +30,8 @@ export default function SettingsPage() {
   const { profile, isAdmin, signOut, user } = useAuth();
   const [linking, setLinking] = useState(false);
   const [linkError, setLinkError] = useState("");
+  const { userDisabled, setUserDisabled, mode } = useSeason();
+  const [prefError, setPrefError] = useState("");
 
   if (!tab) return <Navigate to="/parametres/eleves" replace />;
 
@@ -71,6 +77,31 @@ export default function SettingsPage() {
         <Button variant="ghost" size="sm" onClick={signOut}>
           Se déconnecter
         </Button>
+      </div>
+
+      <div className="card" style={{ padding: "16px 20px", marginBottom: 24, display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 600 }}>Thèmes saisonniers</div>
+          <div style={{ fontSize: 12, color: "var(--color-ink-soft)", marginTop: 2 }}>
+            {mode === "off"
+              ? "Désactivés pour tout le monde par un administrateur."
+              : "Couleurs et décors qui changent selon la période (Noël, Nouvel An…). Ton choix te suit sur tous tes appareils."}
+          </div>
+          {prefError && <div style={{ fontSize: 12, color: "var(--color-red)", marginTop: 4 }}>{prefError}</div>}
+        </div>
+        <Switch
+          label="Afficher les thèmes saisonniers"
+          checked={!userDisabled && mode !== "off"}
+          disabled={mode === "off"}
+          onChange={async (on) => {
+            setPrefError("");
+            try {
+              await setUserDisabled(!on);
+            } catch {
+              setPrefError("Impossible d'enregistrer ce choix. Réessaie.");
+            }
+          }}
+        />
       </div>
 
       {linkError && (

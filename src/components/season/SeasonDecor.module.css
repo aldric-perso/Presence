@@ -1,0 +1,208 @@
+/* --- Particules --------------------------------------------------------------------------- */
+.layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  /* Permet d'exprimer la hauteur de chute en unités du conteneur (cqh) dans les keyframes. */
+  container-type: size;
+}
+
+.particle {
+  position: absolute;
+  top: 0;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.fall {
+  animation-name: fall;
+}
+.rise {
+  animation-name: rise;
+}
+
+@keyframes fall {
+  0% {
+    transform: translate3d(0, -30px, 0) rotate(0deg);
+    opacity: 0;
+  }
+  10%,
+  85% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate3d(var(--dx), calc(100cqh + 30px), 0) rotate(var(--rot));
+    opacity: 0;
+  }
+}
+@keyframes rise {
+  0% {
+    transform: translate3d(0, calc(100cqh + 20px), 0) rotate(0deg);
+    opacity: 0;
+  }
+  10%,
+  80% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate3d(var(--dx), -30px, 0) rotate(var(--rot));
+    opacity: 0;
+  }
+}
+
+/* Pas d'animation pour qui a demandé à en réduire : on garde le dégradé et le pictogramme, fixes. */
+@media (prefers-reduced-motion: reduce) {
+  .layer {
+    display: none;
+  }
+}
+
+/* --- En-tête « poussé » (page Aujourd'hui) ------------------------------------------------- */
+.hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  margin-bottom: 36px;
+  padding: 36px 40px 34px;
+  border-radius: var(--radius-lg);
+  background: var(--season-hero-bg);
+  color: #fff;
+  box-shadow: var(--shadow-raised);
+}
+.hero::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: var(--season-strip);
+  z-index: 1;
+}
+.heroBody {
+  position: relative;
+  z-index: 1;
+  max-width: 640px;
+}
+
+/* Les styles de la page (eyebrow, h1, sous-titre) sont conçus pour fond clair : on les adapte. */
+.hero h1 {
+  color: #fff;
+}
+.hero :global(.eyebrow) {
+  color: rgba(255, 255, 255, 0.88);
+}
+.hero p {
+  color: rgba(255, 255, 255, 0.9);
+  margin: 10px 0 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.heroEmoji {
+  position: absolute;
+  right: 36px;
+  bottom: 14px;
+  z-index: 1;
+  font-size: 96px;
+  line-height: 1;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35));
+  user-select: none;
+}
+
+/* --- Bandeau « moyen » (autres pages) ------------------------------------------------------ */
+.band {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  height: 42px;
+  padding: 0 48px;
+  background: var(--season-hero-bg);
+  color: #fff;
+}
+.band::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: var(--season-strip);
+  z-index: 1;
+}
+.bandText {
+  position: relative;
+  z-index: 1;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* --- Pastille d'aperçu ------------------------------------------------------------------- */
+.previewPill {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 10px 10px 18px;
+  border-radius: var(--radius-pill);
+  background: var(--color-dark);
+  color: var(--color-bg);
+  font-size: 13px;
+  box-shadow: var(--shadow-modal);
+}
+.previewPill button {
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 7px 14px;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .hero {
+    padding: 26px 20px 24px;
+    margin-bottom: 24px;
+  }
+  .heroEmoji {
+    right: 14px;
+    bottom: 8px;
+    font-size: 56px;
+    opacity: 0.9;
+  }
+  .heroBody {
+    padding-right: 52px;
+  }
+  .band {
+    height: 36px;
+    padding: 0 16px;
+  }
+  .previewPill {
+    right: 12px;
+    left: 12px;
+    justify-content: space-between;
+    bottom: calc(var(--bottom-nav-height) + 12px);
+  }
+}

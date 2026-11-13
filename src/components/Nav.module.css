@@ -21,12 +21,21 @@
   width: 26px;
   height: 26px;
   border-radius: 8px;
-  background: var(--color-green);
+  background: var(--brand);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 13px;
   font-weight: 700;
+  position: relative;
+}
+/* Petit pictogramme de la période en cours, à l'angle de la pastille de marque. */
+.brandEmoji {
+  position: absolute;
+  top: -8px;
+  right: -9px;
+  font-size: 14px;
+  line-height: 1;
 }
 .brandName {
   font-size: 15px;
@@ -79,7 +88,7 @@
   flex-shrink: 0;
 }
 .link.active .dot {
-  background: var(--color-green-soft);
+  background: var(--brand-soft);
 }
 
 .shortLabel {
@@ -161,7 +170,7 @@
   }
   .link.active {
     background: transparent;
-    color: var(--color-green-soft);
+    color: var(--brand-soft);
   }
 
   .icon {

@@ -97,6 +97,11 @@ service cloud.firestore {
       );
       allow update: if isAdmin() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['classIds', 'subjectIds', 'role', 'active']);
+      // Préférence d'affichage personnelle (thèmes saisonniers) : seule modification qu'une personne
+      // peut faire sur son propre profil — jamais son rôle, son statut ni ses affectations.
+      allow update: if request.auth.uid == uid && hasProfile() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seasonalThemesDisabled']) &&
+        request.resource.data.seasonalThemesDisabled is bool;
       allow delete: if false;
     }
 

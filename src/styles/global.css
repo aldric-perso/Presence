@@ -19,11 +19,11 @@ body {
 }
 
 a {
-  color: var(--color-green);
+  color: var(--brand);
   text-decoration: none;
 }
 a:hover {
-  color: var(--color-green-dark);
+  color: var(--brand-dark);
 }
 
 button,

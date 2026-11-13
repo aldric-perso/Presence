@@ -35,6 +35,8 @@ const DEFAULT_SETTINGS = {
   partialReasons: DEFAULT_PARTIAL_REASONS,
   lateMinuteChoices: DEFAULT_LATE_MINUTE_CHOICES,
   partialMinuteChoices: DEFAULT_PARTIAL_MINUTE_CHOICES,
+  // Thèmes saisonniers : "auto" (selon la date), "off" (aucun) ou l'id d'un thème forcé (cf. seasons.js).
+  seasonalTheme: "auto",
 };
 
 export function useSettings() {

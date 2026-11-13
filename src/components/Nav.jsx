@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useSeason } from "../context/SeasonContext";
 import Avatar from "./ui/Avatar";
 import styles from "./Nav.module.css";
 
@@ -45,11 +46,19 @@ const LINKS = [
 
 export default function Nav() {
   const { profile, signOut } = useAuth();
+  const { season } = useSeason();
 
   return (
     <nav className={styles.nav}>
       <div className={styles.brand}>
-        <div className={styles.brandMark}>P</div>
+        <div className={styles.brandMark}>
+          P
+          {season && (
+            <span className={styles.brandEmoji} aria-hidden="true">
+              {season.emoji}
+            </span>
+          )}
+        </div>
         <span className={styles.brandName}>Présences</span>
       </div>
 

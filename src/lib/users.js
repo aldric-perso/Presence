@@ -125,3 +125,12 @@ export async function setTeacherActive(uid, active) {
   }
   await updateDoc(doc(db, "users", uid), { active });
 }
+
+/**
+ * Préférence personnelle : désactiver les thèmes saisonniers (cf. src/lib/seasons.js). C'est la
+ * seule modification qu'une personne peut faire sur son propre profil (cf. firestore.rules) ; le
+ * choix la suit d'un appareil à l'autre.
+ */
+export async function setSeasonalThemesDisabled(uid, disabled) {
+  await updateDoc(doc(db, "users", uid), { seasonalThemesDisabled: !!disabled });
+}

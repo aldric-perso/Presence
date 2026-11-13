@@ -55,7 +55,7 @@
   background: var(--color-panel);
 }
 .listItem.selected {
-  border-left-color: var(--color-green);
+  border-left-color: var(--brand);
   background: #f1f5f3;
 }
 .listItemName {

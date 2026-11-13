@@ -37,7 +37,7 @@
   color: var(--color-bg);
 }
 .primary:hover:not(:disabled) {
-  background: var(--color-green);
+  background: var(--brand);
 }
 
 .ghost {

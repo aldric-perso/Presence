@@ -6,6 +6,8 @@ import {
   GoogleAuthProvider,
 } from "firebase/auth";
 import { auth } from "../firebase";
+import { useSeason } from "../context/SeasonContext";
+import { SeasonParticles } from "../components/season/SeasonDecor";
 import Button from "../components/ui/Button";
 import Callout from "../components/ui/Callout";
 import { Field, TextInput } from "../components/ui/Field";
@@ -19,6 +21,7 @@ const ERROR_MESSAGES = {
 };
 
 export default function LoginPage() {
+  const { season } = useSeason();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -82,12 +85,18 @@ export default function LoginPage() {
 
   return (
     <div className={styles.wrap}>
-      <div className={styles.hero}>
+      <div className={[styles.hero, season ? styles.seasonal : ""].join(" ")}>
+        {season && <SeasonParticles season={season} />}
         <div className={styles.brand}>
           <div className={styles.brandMark}>P</div>
           <span className={styles.brandName}>Présences</span>
         </div>
         <div>
+          {season && (
+            <span className={styles.seasonChip}>
+              <span aria-hidden="true">{season.emoji}</span> {season.greeting}
+            </span>
+          )}
           <div className={styles.title}>Cahier d'appel</div>
           <p className={styles.tagline}>
             Le suivi de présence des élèves, classe par classe, séance par séance.

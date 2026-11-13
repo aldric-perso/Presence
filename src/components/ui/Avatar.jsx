@@ -9,7 +9,7 @@ function initialsOf(name = "") {
 }
 
 export default function Avatar({ name, size = 36, tone = "neutral" }) {
-  const bg = tone === "brand" ? "var(--color-green)" : "var(--color-pill-bg)";
+  const bg = tone === "brand" ? "var(--brand)" : "var(--color-pill-bg)";
   const color = tone === "brand" ? "#fff" : "var(--color-ink-soft)";
   return (
     <div
