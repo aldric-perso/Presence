@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useClasses } from "../lib/classes";
 import { useSubjects } from "../lib/subjects";
 import { useTimeSlots, durationMinutes, formatDuration } from "../lib/timeSlots";
 import { useStudentsByClasses } from "../lib/students";
 import { useSettings } from "../lib/settings";
-import { submitAttendanceRecord, STATUS } from "../lib/attendance";
+import { submitAttendanceRecord, newAttemptKey, STATUS } from "../lib/attendance";
 import { formatDateLabel } from "../lib/dates";
 import { Pill } from "../components/ui/Pill";
 import Avatar from "../components/ui/Avatar";
@@ -56,6 +56,11 @@ export default function TakeAttendancePage() {
     classGroups.forEach((g) => g.students.forEach((s) => map.set(s.id, g.classe)));
     return map;
   }, [classGroups]);
+
+  // Une clé par ouverture de feuille : un renvoi (double clic, nouvel essai après échec partiel)
+  // retombe sur les mêmes IDs et n'enregistre pas l'appel deux fois.
+  const attemptKey = useRef(null);
+  if (!attemptKey.current) attemptKey.current = newAttemptKey();
 
   const [roll, setRoll] = useState({});
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -154,6 +159,7 @@ export default function TakeAttendancePage() {
           classId: classIds[i],
           subjectId,
           timeSlotId,
+          attemptKey: attemptKey.current,
           entries: entries.filter((e) => studentIds.has(e.studentId)).map(buildEntry),
         });
       }),

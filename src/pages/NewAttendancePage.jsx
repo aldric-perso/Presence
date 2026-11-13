@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useClasses } from "../lib/classes";
 import { useSubjects } from "../lib/subjects";
 import { useTimeSlots, durationMinutes, formatDuration } from "../lib/timeSlots";
-import { checkExistingRecord } from "../lib/attendance";
+import { findRecordsAtSlot } from "../lib/attendance";
 import { todayISO, isoDaysAgo, formatDateLabel } from "../lib/dates";
 import { Pill } from "../components/ui/Pill";
 import { Field, Select } from "../components/ui/Field";
@@ -32,8 +32,7 @@ export default function NewAttendancePage() {
   const [classIds, setClassIds] = useState([]);
   const [subjectId, setSubjectId] = useState("");
   const [timeSlotId, setTimeSlotId] = useState("");
-  const [duplicates, setDuplicates] = useState([]);
-  const [checking, setChecking] = useState(false);
+  const [slotRecords, setSlotRecords] = useState([]);
   const [confirmRetro, setConfirmRetro] = useState(false);
 
   useEffect(() => {
@@ -47,33 +46,34 @@ export default function NewAttendancePage() {
     setClassIds((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]));
   }
 
-  const classIdsKey = classIds.join(",");
+  // Simple avertissement (rien n'est bloqué) : on regarde si un appel existe déjà à ce créneau
+  // pour l'une des classes choisies, par exemple quand deux groupes d'élèves particuliers se
+  // répartissent la même classe.
   useEffect(() => {
-    if (classIds.length === 0 || !subjectId || !timeSlotId || !date) {
-      setDuplicates([]);
+    if (!timeSlotId || !date) {
+      setSlotRecords([]);
       return;
     }
     let cancelled = false;
-    setChecking(true);
-    Promise.all(classIds.map((classId) => checkExistingRecord({ date, classId, subjectId, timeSlotId }))).then(
-      (results) => {
-        if (cancelled) return;
-        setDuplicates(
-          results
-            .map((record, i) => ({ classId: classIds[i], record }))
-            .filter((d) => d.record),
-        );
-        setChecking(false);
-      },
-    );
+    findRecordsAtSlot({ date, timeSlotId })
+      .then((records) => {
+        if (!cancelled) setSlotRecords(records);
+      })
+      .catch(() => {
+        if (!cancelled) setSlotRecords([]);
+      });
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [classIdsKey, subjectId, timeSlotId, date]);
+  }, [timeSlotId, date]);
+
+  const existingAtSlot = useMemo(
+    () => slotRecords.filter((r) => classIds.includes(r.classId)),
+    [slotRecords, classIds],
+  );
 
   const isToday = date === todayISO();
-  const canOpen = duplicates.length === 0 && !checking && classIds.length > 0 && subjectId && timeSlotId;
+  const canOpen = classIds.length > 0 && subjectId && timeSlotId;
 
   const quickDates = useMemo(
     () => [
@@ -102,8 +102,8 @@ export default function NewAttendancePage() {
       <div className="eyebrow">Étape 1 sur 2</div>
       <h1 style={{ margin: "10px 0 8px", fontSize: 40 }}>Paramètres de l'appel</h1>
       <p style={{ fontSize: 15, color: "var(--color-ink-soft)", margin: "0 0 32px", maxWidth: "56ch" }}>
-        Ces quatre champs identifient l'appel de façon unique. Un seul enregistrement est possible
-        par combinaison.
+        Date, classe(s), matière et créneau identifient l'appel. Si un appel existe déjà à ce
+        créneau, tu en seras averti(e) mais tu pourras quand même en saisir un autre.
       </p>
 
       <div className="card" style={{ padding: 28, display: "grid", gap: 22 }}>
@@ -198,16 +198,17 @@ export default function NewAttendancePage() {
           </div>
         </div>
 
-        {duplicates.length > 0 && (
-          <Callout tone="danger">
-            <strong>Appel déjà enregistré</strong> pour cette matière et ce créneau, pour{" "}
-            {duplicates
-              .map((d) => {
-                const c = classes.find((cl) => cl.id === d.classId);
-                return `${c?.name || "?"} (par ${d.record.authorName})`;
+        {existingAtSlot.length > 0 && (
+          <Callout tone="warning">
+            <strong>Attention : un appel a déjà été enregistré à ce créneau</strong> pour{" "}
+            {existingAtSlot
+              .map((r) => {
+                const c = classes.find((cl) => cl.id === r.classId);
+                return `${c?.name || r.className || "?"} — ${r.subjectName || "?"} (par ${r.authorName})`;
               })
               .join(", ")}
-            . Désélectionne cette classe ou change de créneau pour continuer.
+            . Vérifie qu'aucun élève ne soit compté deux fois (mets N/A ceux qui suivent l'autre appel).
+            Tu peux continuer si c'est voulu.
           </Callout>
         )}
       </div>

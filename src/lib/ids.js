@@ -23,7 +23,12 @@ export function initialsOf(name = "") {
     .toUpperCase();
 }
 
-/** ID deterministe d'un appel : garantit l'unicite classe+matiere+creneau+date au niveau Firestore. */
-export function attendanceRecordId({ date, classId, subjectId, timeSlotId }) {
-  return `${date}_${classId}_${subjectId}_${timeSlotId}`;
+/**
+ * ID d'un appel. `attemptKey` est généré une fois par ouverture de feuille (cf. TakeAttendancePage) :
+ * il empêche qu'un même envoi soit enregistré deux fois (double clic, nouvel essai après échec partiel)
+ * sans interdire pour autant plusieurs appels distincts sur la même date+classe+matière+créneau
+ * (ex. deux groupes d'élèves particuliers, chacun N/A sur l'autre appel).
+ */
+export function attendanceRecordId({ date, classId, subjectId, timeSlotId, attemptKey }) {
+  return `${date}_${classId}_${subjectId}_${timeSlotId}_${attemptKey}`;
 }

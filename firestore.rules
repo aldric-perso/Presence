@@ -134,9 +134,10 @@ service cloud.firestore {
     }
 
     // --- Appels ---
-    // Un appel n'est jamais recréé : l'ID déterministe (date_classe_matière_créneau) fait que
-    // Firestore refuse nativement toute tentative de "create" sur un document déjà existant —
-    // c'est ce qui garantit l'unicité d'un appel, sans transaction serveur.
+    // Un appel n'est jamais recréé : Firestore refuse nativement un "create" sur un document déjà
+    // existant. L'ID (date_classe_matière_créneau_clé d'envoi) ne protège donc que contre le
+    // renvoi d'un même envoi ; plusieurs appels distincts peuvent coexister sur un même créneau
+    // (l'UI se contente d'avertir).
     // Une fois créé, l'auteur peut corriger son propre appel ; un admin peut corriger n'importe
     // lequel (motif obligatoire conservé dans tous les cas).
     match /attendanceRecords/{recordId} {

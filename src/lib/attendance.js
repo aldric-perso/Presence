@@ -4,6 +4,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -68,11 +69,18 @@ export function useClassRecords(classId) {
   return useCollection(q);
 }
 
-/** Vérifie côté client si un appel existe déjà pour cette combinaison (aide à l'UX ; la garantie réelle vient des règles Firestore, cf. plus bas). */
-export async function checkExistingRecord({ date, classId, subjectId, timeSlotId }) {
-  const id = attendanceRecordId({ date, classId, subjectId, timeSlotId });
-  const snap = await getDoc(doc(db, "attendanceRecords", id));
-  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+/** Clé unique à générer une fois par ouverture de feuille d'appel (cf. attendanceRecordId). */
+export function newAttemptKey() {
+  return doc(recordsRef).id;
+}
+
+/**
+ * Appels non supprimés déjà enregistrés à une date et un créneau donnés (toutes classes/matières).
+ * Simple aide à l'UX : ils ne bloquent rien, on s'en sert pour afficher un avertissement.
+ */
+export async function findRecordsAtSlot({ date, timeSlotId }) {
+  const snap = await getDocs(query(recordsRef, where("date", "==", date), where("timeSlotId", "==", timeSlotId)));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((r) => !r.deleted);
 }
 
 function validateEntries(entries, sessionMinutes) {
@@ -112,12 +120,12 @@ function cleanEntries(entries, sessionMinutes) {
 
 /**
  * Sans Cloud Function (plan Spark gratuit), l'écriture se fait directement depuis le client.
- * L'unicité de l'appel est garantie par Firestore lui-même : l'ID du document est déterministe
- * (date+classe+matière+créneau) et les règles n'autorisent un "create" que si le document
- * n'existait pas encore — toute tentative en doublon est donc rejetée nativement, sans
- * transaction serveur à écrire.
+ * Plusieurs appels peuvent exister sur la même date+classe+matière+créneau (élèves particuliers
+ * répartis entre deux appels). Seul le renvoi d'un MÊME envoi est rejeté : l'ID du document
+ * contient `attemptKey` et les règles n'autorisent un "create" que si le document n'existait
+ * pas encore.
  */
-export async function submitAttendanceRecord({ date, classId, subjectId, timeSlotId, entries }) {
+export async function submitAttendanceRecord({ date, classId, subjectId, timeSlotId, attemptKey, entries }) {
   const [classSnap, subjectSnap, timeSlotSnap, authorSnap] = await Promise.all([
     getDoc(doc(db, "classes", classId)),
     getDoc(doc(db, "subjects", subjectId)),
@@ -132,7 +140,7 @@ export async function submitAttendanceRecord({ date, classId, subjectId, timeSlo
   const sessionMinutes = durationMinutes(timeSlotLabel) || 50;
   validateEntries(entries, sessionMinutes);
 
-  const recordId = attendanceRecordId({ date, classId, subjectId, timeSlotId });
+  const recordId = attendanceRecordId({ date, classId, subjectId, timeSlotId, attemptKey });
 
   try {
     await setDoc(doc(db, "attendanceRecords", recordId), {
@@ -154,7 +162,7 @@ export async function submitAttendanceRecord({ date, classId, subjectId, timeSlo
   } catch (err) {
     if (err.code === "permission-denied") {
       throw Object.assign(
-        new Error("Un appel a déjà été enregistré entre-temps pour cette classe, cette matière et ce créneau."),
+        new Error("Cet appel a déjà été enregistré."),
         { code: "already-exists" },
       );
     }
